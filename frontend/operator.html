@@ -6,13 +6,13 @@
 <title>Counterpart — Operator</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400;1,600&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
 <style>
 :root{
-  --earth:#1a1108; --earth-mid:#221a0e; --earth-light:#2e2416; --earth-lift:#3a2e1c; --earth-deep:#120b04;
-  --ember:#c8883a; --ember-warm:#e0a055; --ember-pale:#f2d4a0; --ember-dim:#5a3a10; --ember-glow:rgba(200,136,58,0.14);
-  --cream:#f0e8d8; --cream-mid:#c8bca8; --cream-dim:#8a7d68; --cream-faint:#3a2e1e;
-  --red-err:#c87060; --green-ok:#7ab898; --green-dim:#1a3028; --blue-info:#6a9ab8; --blue-dim:#1a2a38;
+  --earth:#ffffff; --earth-mid:#eef1f5; --earth-light:#e2e8f0; --earth-lift:#f7f9fb; --earth-deep:#f3f5f8;
+  --ember:#2563a8; --ember-warm:#3b82c9; --ember-pale:#1a4d75; --ember-dim:#d6e8f7; --ember-glow:rgba(37,99,168,0.07);
+  --cream:#1b2a3d; --cream-mid:#5a6675; --cream-dim:#7e8a98; --cream-faint:#dde2e8;
+  --red-err:#c0392b; --green-ok:#2f855a; --green-dim:#e3f2e9; --blue-info:#3a6ea5; --blue-dim:#e7eef6;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
@@ -27,7 +27,7 @@ body::before{
 button{font-family:inherit}
 ::-webkit-scrollbar{width:4px;height:4px}
 ::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{background:var(--cream-faint);border-radius:2px}
+::-webkit-scrollbar-thumb{background:var(--cream-dim);border-radius:2px}
 ::-webkit-scrollbar-thumb:hover{background:var(--cream-dim)}
 
 /* ════ KEY SCREEN ════ */
@@ -45,13 +45,13 @@ button{font-family:inherit}
   border-bottom:1px solid var(--cream-faint);color:var(--cream);padding:10px 0 14px;outline:none;
   transition:border-color 0.25s;caret-color:var(--ember)
 }
-.key-input::placeholder{color:var(--cream-faint);font-weight:300;letter-spacing:0.06em;text-transform:none}
+.key-input::placeholder{color:var(--cream-dim);font-weight:300;letter-spacing:0.06em;text-transform:none}
 .key-input:focus{border-bottom-color:var(--ember)}
 .key-input.wrong{border-bottom-color:var(--red-err);animation:shk 0.4s ease}
 @keyframes shk{0%,100%{transform:translateX(0)}20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}
-.key-hint{margin-top:1.1rem;font-size:11px;letter-spacing:0.07em;color:var(--cream-faint);text-align:center;min-height:1.2em;transition:color 0.2s}
+.key-hint{margin-top:1.1rem;font-size:11px;letter-spacing:0.07em;color:var(--cream-dim);text-align:center;min-height:1.2em;transition:color 0.2s}
 .key-hint.err{color:var(--red-err)}
-.key-tagline{margin-top:3rem;font-family:'Cormorant Garamond',serif;font-style:italic;font-size:17px;color:var(--cream-dim);text-align:center;max-width:320px;line-height:1.5}
+.key-tagline{margin-top:3rem;font-family:'DM Sans',sans-serif;font-style:italic;font-size:17px;color:var(--cream-dim);text-align:center;max-width:320px;line-height:1.5}
 
 /* ════ APP SHELL ════ */
 .app-shell{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column;opacity:0;transition:opacity 0.5s ease}
@@ -60,27 +60,27 @@ button{font-family:inherit}
 /* ════ HEADER ════ */
 .op-header{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.5rem;border-bottom:1px solid var(--cream-faint);position:sticky;top:0;background:var(--earth);z-index:5}
 .wordmark{display:flex;align-items:center;gap:10px}
-.wm-name{font-family:'Cormorant Garamond',serif;font-size:19px;font-weight:400;letter-spacing:0.04em;color:var(--cream)}
+.wm-name{font-family:'DM Sans',sans-serif;font-size:19px;font-weight:400;letter-spacing:0.04em;color:var(--cream)}
 .op-pill{font-size:9.5px;letter-spacing:0.12em;text-transform:uppercase;color:var(--ember-warm);background:var(--ember-glow);border:1px solid var(--ember-dim);border-radius:10px;padding:2px 9px}
 .op-header-right{display:flex;align-items:center;gap:16px}
 .key-badge{font-size:10.5px;letter-spacing:0.06em;color:var(--cream-dim);display:flex;align-items:center;gap:6px}
 .key-badge b{color:var(--cream-mid);font-weight:500;letter-spacing:0.1em}
-.foot-link{font-size:10.5px;color:var(--cream-faint);background:none;border:none;cursor:pointer;transition:color 0.2s}
+.foot-link{font-size:10.5px;color:var(--cream-dim);background:none;border:none;cursor:pointer;transition:color 0.2s}
 .foot-link:hover{color:var(--ember)}
 
 /* ════ MAIN ════ */
 .op-main{flex:1;max-width:880px;width:100%;margin:0 auto;padding:2.2rem 1.5rem 4rem;display:flex;flex-direction:column;gap:1.4rem}
-.op-intro h1{font-family:'Cormorant Garamond',serif;font-size:32px;font-weight:300;color:var(--cream);margin-bottom:0.6rem;letter-spacing:-0.01em}
+.op-intro h1{font-family:'DM Sans',sans-serif;font-size:32px;font-weight:300;color:var(--cream);margin-bottom:0.6rem;letter-spacing:-0.01em}
 .op-intro h1 em{font-style:italic;color:var(--ember-warm)}
-.op-intro p{font-size:13px;color:var(--cream-mid);line-height:1.85;max-width:620px;margin-bottom:1.1rem;font-weight:300}
-.org-name-input{width:100%;max-width:420px;display:block;background:transparent;border:none;border-bottom:1px solid var(--cream-faint);color:var(--cream);font-family:'Cormorant Garamond',serif;font-size:18px;font-style:italic;padding:6px 0;outline:none;transition:border-color 0.2s}
-.org-name-input::placeholder{color:var(--cream-faint);font-style:italic}
+.op-intro p{font-size:14px;color:var(--cream-mid);line-height:1.85;max-width:620px;margin-bottom:1.1rem;font-weight:300}
+.org-name-input{width:100%;max-width:420px;display:block;background:transparent;border:none;border-bottom:1px solid var(--cream-faint);color:var(--cream);font-family:'DM Sans',sans-serif;font-size:18px;font-style:italic;padding:6px 0;outline:none;transition:border-color 0.2s}
+.org-name-input::placeholder{color:var(--cream-dim);font-style:italic}
 .org-name-input:focus{border-color:var(--ember)}
 
 /* ════ CARDS ════ */
 .op-card{background:var(--earth-deep);border:1px solid var(--cream-faint);border-radius:10px;padding:1.3rem 1.4rem}
 .op-card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:0.9rem;gap:10px;flex-wrap:wrap}
-.op-card-head h2{font-family:'Cormorant Garamond',serif;font-size:19px;font-weight:400;color:var(--cream)}
+.op-card-head h2{font-family:'DM Sans',sans-serif;font-size:19px;font-weight:400;color:var(--cream)}
 
 /* ════ CONTEXT ════ */
 .ctx-desc{font-size:11.5px;color:var(--cream-dim);line-height:1.7;margin-bottom:0.9rem}
@@ -95,7 +95,7 @@ button{font-family:inherit}
 
 .issue-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:1.2rem;padding-bottom:1.2rem;border-bottom:1px solid var(--cream-faint)}
 .issue-row .field{display:flex;flex-direction:column;gap:5px}
-.issue-row .field label{font-size:9.5px;letter-spacing:0.1em;text-transform:uppercase;color:var(--cream-faint)}
+.issue-row .field label{font-size:9.5px;letter-spacing:0.1em;text-transform:uppercase;color:var(--cream-dim)}
 .modal-input{background:var(--earth-light);border:1px solid var(--cream-faint);border-radius:7px;color:var(--cream);font-family:inherit;font-size:13px;padding:9px 12px;outline:none;transition:border-color 0.2s}
 .modal-input:focus{border-color:var(--ember)}
 .issue-row .modal-input{min-width:170px;margin-bottom:0}
@@ -110,7 +110,7 @@ button{font-family:inherit}
 
 .seats-table-wrap{overflow-x:auto}
 .seats-table{width:100%;border-collapse:collapse;font-size:12.5px;min-width:560px}
-.seats-table th{text-align:left;font-size:9.5px;letter-spacing:0.1em;text-transform:uppercase;color:var(--cream-faint);padding:0 8px 8px;border-bottom:1px solid var(--cream-faint);font-weight:400}
+.seats-table th{text-align:left;font-size:9.5px;letter-spacing:0.1em;text-transform:uppercase;color:var(--cream-dim);padding:0 8px 8px;border-bottom:1px solid var(--cream-faint);font-weight:400}
 .seats-table td{padding:10px 8px;border-bottom:1px solid var(--cream-faint);color:var(--cream-mid);vertical-align:middle}
 .seats-table tr:last-child td{border-bottom:none}
 .seat-key{font-family:monospace;font-size:11px;color:var(--cream);background:var(--earth-mid);padding:3px 7px;border-radius:4px;letter-spacing:0.04em}
@@ -119,20 +119,20 @@ button{font-family:inherit}
 .status-pill{font-size:10px;letter-spacing:0.04em;padding:3px 9px;border-radius:10px;display:inline-block;white-space:nowrap}
 .status-active{color:var(--green-ok);background:var(--green-dim)}
 .status-revoked{color:var(--red-err);background:rgba(200,112,96,0.12)}
-.status-expired{color:var(--cream-faint);background:var(--earth-mid)}
+.status-expired{color:var(--cream-dim);background:var(--earth-mid)}
 .status-scheduled{color:var(--blue-info);background:var(--blue-dim)}
 
 .doc-mini{font-size:10px;letter-spacing:0.04em;color:var(--cream-dim);background:transparent;border:1px solid var(--cream-faint);border-radius:5px;padding:4px 8px;cursor:pointer;transition:all 0.18s}
 .doc-mini:hover{border-color:var(--ember);color:var(--ember)}
 
-.ws-empty{font-size:12px;color:var(--cream-faint);font-style:italic;text-align:center;padding:1.6rem 1rem;line-height:1.7}
+.ws-empty{font-size:12px;color:var(--cream-dim);font-style:italic;text-align:center;padding:1.6rem 1rem;line-height:1.7}
 
 /* ════ BILLING ════ */
 .billing-row{display:flex;gap:2.2rem;flex-wrap:wrap;align-items:center;font-size:13px;color:var(--cream-mid)}
-.billing-row .stat-label{font-size:9.5px;letter-spacing:0.1em;text-transform:uppercase;color:var(--cream-faint);display:block;margin-bottom:4px}
-.billing-row .stat-val{font-size:20px;color:var(--cream);font-weight:400;font-family:'Cormorant Garamond',serif}
+.billing-row .stat-label{font-size:9.5px;letter-spacing:0.1em;text-transform:uppercase;color:var(--cream-dim);display:block;margin-bottom:4px}
+.billing-row .stat-val{font-size:20px;color:var(--cream);font-weight:400;font-family:'DM Sans',sans-serif}
 .billing-row input.modal-input{width:90px}
-.billing-note{font-size:11px;color:var(--cream-faint);margin-top:1rem;line-height:1.6}
+.billing-note{font-size:11px;color:var(--cream-dim);margin-top:1rem;line-height:1.6}
 
 /* ════ TOAST / MODAL ════ */
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--earth-lift);border:1px solid var(--ember);color:var(--cream);font-size:12px;padding:8px 16px;border-radius:7px;opacity:0;transition:all 0.3s;pointer-events:none;white-space:nowrap;z-index:120}
@@ -141,7 +141,7 @@ button{font-family:inherit}
 .modal-overlay.open{display:flex}
 .modal{background:var(--earth-mid);border:1px solid var(--cream-faint);border-radius:12px;padding:1.5rem;width:100%;max-width:440px;animation:riseIn 0.3s ease;max-height:85vh;overflow-y:auto}
 @keyframes riseIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-.modal-title{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:400;color:var(--cream);margin-bottom:0.6rem}
+.modal-title{font-family:'DM Sans',sans-serif;font-size:23px;font-weight:400;color:var(--cream);margin-bottom:0.6rem}
 .modal-body{font-size:13px;color:var(--cream-mid);line-height:1.75;margin-bottom:1.25rem;white-space:pre-wrap}
 .modal-actions{display:flex;gap:8px;justify-content:flex-end}
 .modal-actions .modal-input{width:100%;margin-bottom:1rem}
@@ -164,11 +164,11 @@ button{font-family:inherit}
 <!-- ════ KEY SCREEN ════ -->
 <div class="key-screen" id="key-screen">
   <svg class="flame-icon" id="flame-svg" viewBox="0 0 52 64" fill="none">
-    <path d="M26 4C26 4 36 16 36 26C36 31.5 32.5 36 26 36C19.5 36 16 31.5 16 26C16 16 26 4 26 4Z" stroke="#f0e8d8" stroke-width="2"/>
-    <path d="M26 36C26 36 20 44 20 50C20 55.5 22.7 60 26 60C29.3 60 32 55.5 32 50C32 44 26 36 26 36Z" stroke="#f0e8d8" stroke-width="2"/>
-    <circle cx="26" cy="50" r="4" fill="#f0e8d8" opacity="0.4"/>
-    <path d="M18 22C18 22 14 28 16 34" stroke="#f0e8d8" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
-    <path d="M34 22C34 22 38 28 36 34" stroke="#f0e8d8" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
+    <path d="M26 4C26 4 36 16 36 26C36 31.5 32.5 36 26 36C19.5 36 16 31.5 16 26C16 16 26 4 26 4Z" stroke="#1b2a3d" stroke-width="2"/>
+    <path d="M26 36C26 36 20 44 20 50C20 55.5 22.7 60 26 60C29.3 60 32 55.5 32 50C32 44 26 36 26 36Z" stroke="#1b2a3d" stroke-width="2"/>
+    <circle cx="26" cy="50" r="4" fill="#1b2a3d" opacity="0.4"/>
+    <path d="M18 22C18 22 14 28 16 34" stroke="#1b2a3d" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
+    <path d="M34 22C34 22 38 28 36 34" stroke="#1b2a3d" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
   </svg>
   <div class="key-input-wrap">
     <input class="key-input" id="key-input" type="text" placeholder="enter your key"
