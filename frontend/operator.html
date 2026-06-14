@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Counterpart — Operator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400;1,600&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --earth:#1a1108; --earth-mid:#221a0e; --earth-light:#2e2416; --earth-lift:#3a2e1c; --earth-deep:#120b04;
+  --ember:#c8883a; --ember-warm:#e0a055; --ember-pale:#f2d4a0; --ember-dim:#5a3a10; --ember-glow:rgba(200,136,58,0.14);
+  --cream:#f0e8d8; --cream-mid:#c8bca8; --cream-dim:#8a7d68; --cream-faint:#3a2e1e;
+  --red-err:#c87060; --green-ok:#7ab898; --green-dim:#1a3028; --blue-info:#6a9ab8; --blue-dim:#1a2a38;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  background:var(--earth);color:var(--cream);font-family:'DM Sans',sans-serif;font-weight:300;
+  min-height:100vh;line-height:1.6;
+}
+body::before{
+  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+}
+button{font-family:inherit}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--cream-faint);border-radius:2px}
+::-webkit-scrollbar-thumb:hover{background:var(--cream-dim)}
+
+/* ════ KEY SCREEN ════ */
+.key-screen{
+  position:fixed;inset:0;z-index:60;background:var(--earth);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem;
+}
+.key-screen.gone{display:none}
+.flame-icon{width:48px;height:48px;margin-bottom:2.5rem;opacity:0.25;transition:opacity 0.5s ease}
+.flame-icon.alive{opacity:0.7}
+.key-input-wrap{width:100%;max-width:280px}
+.key-input{
+  width:100%;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:400;letter-spacing:0.18em;
+  text-align:center;text-transform:uppercase;background:transparent;border:none;
+  border-bottom:1px solid var(--cream-faint);color:var(--cream);padding:10px 0 14px;outline:none;
+  transition:border-color 0.25s;caret-color:var(--ember)
+}
+.key-input::placeholder{color:var(--cream-faint);font-weight:300;letter-spacing:0.06em;text-transform:none}
+.key-input:focus{border-bottom-color:var(--ember)}
+.key-input.wrong{border-bottom-color:var(--red-err);animation:shk 0.4s ease}
+@keyframes shk{0%,100%{transform:translateX(0)}20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}
+.key-hint{margin-top:1.1rem;font-size:11px;letter-spacing:0.07em;color:var(--cream-faint);text-align:center;min-height:1.2em;transition:color 0.2s}
+.key-hint.err{color:var(--red-err)}
+.key-tagline{margin-top:3rem;font-family:'Cormorant Garamond',serif;font-style:italic;font-size:17px;color:var(--cream-dim);text-align:center;max-width:320px;line-height:1.5}
+
+/* ════ APP SHELL ════ */
+.app-shell{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column;opacity:0;transition:opacity 0.5s ease}
+.app-shell.ready{opacity:1}
+
+/* ════ HEADER ════ */
+.op-header{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.5rem;border-bottom:1px solid var(--cream-faint);position:sticky;top:0;background:var(--earth);z-index:5}
+.wordmark{display:flex;align-items:center;gap:10px}
+.wm-name{font-family:'Cormorant Garamond',serif;font-size:19px;font-weight:400;letter-spacing:0.04em;color:var(--cream)}
+.op-pill{font-size:9.5px;letter-spacing:0.12em;text-transform:uppercase;color:var(--ember-warm);background:var(--ember-glow);border:1px solid var(--ember-dim);border-radius:10px;padding:2px 9px}
+.op-header-right{display:flex;align-items:center;gap:16px}
+.key-badge{font-size:10.5px;letter-spacing:0.06em;color:var(--cream-dim);display:flex;align-items:center;gap:6px}
+.key-badge b{color:var(--cream-mid);font-weight:500;letter-spacing:0.1em}
+.foot-link{font-size:10.5px;color:var(--cream-faint);background:none;border:none;cursor:pointer;transition:color 0.2s}
+.foot-link:hover{color:var(--ember)}
+
+/* ════ MAIN ════ */
+.op-main{flex:1;max-width:880px;width:100%;margin:0 auto;padding:2.2rem 1.5rem 4rem;display:flex;flex-direction:column;gap:1.4rem}
+.op-intro h1{font-family:'Cormorant Garamond',serif;font-size:32px;font-weight:300;color:var(--cream);margin-bottom:0.6rem;letter-spacing:-0.01em}
+.op-intro h1 em{font-style:italic;color:var(--ember-warm)}
+.op-intro p{font-size:13px;color:var(--cream-mid);line-height:1.85;max-width:620px;margin-bottom:1.1rem;font-weight:300}
+.org-name-input{width:100%;max-width:420px;display:block;background:transparent;border:none;border-bottom:1px solid var(--cream-faint);color:var(--cream);font-family:'Cormorant Garamond',serif;font-size:18px;font-style:italic;padding:6px 0;outline:none;transition:border-color 0.2s}
+.org-name-input::placeholder{color:var(--cream-faint);font-style:italic}
+.org-name-input:focus{border-color:var(--ember)}
+
+/* ════ CARDS ════ */
+.op-card{background:var(--earth-deep);border:1px solid var(--cream-faint);border-radius:10px;padding:1.3rem 1.4rem}
+.op-card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:0.9rem;gap:10px;flex-wrap:wrap}
+.op-card-head h2{font-family:'Cormorant Garamond',serif;font-size:19px;font-weight:400;color:var(--cream)}
+
+/* ════ CONTEXT ════ */
+.ctx-desc{font-size:11.5px;color:var(--cream-dim);line-height:1.7;margin-bottom:0.9rem}
+.ctx-area{width:100%;min-height:140px;background:var(--earth-mid);border:1px solid var(--cream-faint);border-radius:8px;color:var(--cream);font-family:inherit;font-size:12.5px;line-height:1.7;padding:11px;outline:none;resize:vertical}
+.ctx-area:focus{border-color:var(--ember)}
+.ctx-save{margin-top:0.7rem;font-size:11px;color:var(--cream-dim);text-align:right}
+
+/* ════ SEATS ════ */
+.seats-summary{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1.1rem}
+.summary-pill{font-size:11px;color:var(--cream-mid);background:var(--earth-mid);border:1px solid var(--cream-faint);border-radius:7px;padding:6px 12px;display:flex;gap:6px;align-items:center}
+.summary-pill b{color:var(--cream);font-weight:600}
+
+.issue-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:1.2rem;padding-bottom:1.2rem;border-bottom:1px solid var(--cream-faint)}
+.issue-row .field{display:flex;flex-direction:column;gap:5px}
+.issue-row .field label{font-size:9.5px;letter-spacing:0.1em;text-transform:uppercase;color:var(--cream-faint)}
+.modal-input{background:var(--earth-light);border:1px solid var(--cream-faint);border-radius:7px;color:var(--cream);font-family:inherit;font-size:13px;padding:9px 12px;outline:none;transition:border-color 0.2s}
+.modal-input:focus{border-color:var(--ember)}
+.issue-row .modal-input{min-width:170px;margin-bottom:0}
+
+.new-btn{
+  display:flex;align-items:center;gap:7px;font-size:12.5px;letter-spacing:0.02em;
+  background:var(--ember-glow);border:1px solid var(--ember-dim);border-radius:8px;color:var(--ember-warm);
+  padding:9px 16px;cursor:pointer;transition:all 0.18s;font-weight:500;
+}
+.new-btn:hover{background:rgba(200,136,58,0.22);border-color:var(--ember)}
+.new-btn svg{width:13px;height:13px;stroke:var(--ember-warm);fill:none;stroke-width:2;stroke-linecap:round}
+
+.seats-table-wrap{overflow-x:auto}
+.seats-table{width:100%;border-collapse:collapse;font-size:12.5px;min-width:560px}
+.seats-table th{text-align:left;font-size:9.5px;letter-spacing:0.1em;text-transform:uppercase;color:var(--cream-faint);padding:0 8px 8px;border-bottom:1px solid var(--cream-faint);font-weight:400}
+.seats-table td{padding:10px 8px;border-bottom:1px solid var(--cream-faint);color:var(--cream-mid);vertical-align:middle}
+.seats-table tr:last-child td{border-bottom:none}
+.seat-key{font-family:monospace;font-size:11px;color:var(--cream);background:var(--earth-mid);padding:3px 7px;border-radius:4px;letter-spacing:0.04em}
+.seat-actions{display:flex;gap:6px;flex-wrap:wrap}
+
+.status-pill{font-size:10px;letter-spacing:0.04em;padding:3px 9px;border-radius:10px;display:inline-block;white-space:nowrap}
+.status-active{color:var(--green-ok);background:var(--green-dim)}
+.status-revoked{color:var(--red-err);background:rgba(200,112,96,0.12)}
+.status-expired{color:var(--cream-faint);background:var(--earth-mid)}
+.status-scheduled{color:var(--blue-info);background:var(--blue-dim)}
+
+.doc-mini{font-size:10px;letter-spacing:0.04em;color:var(--cream-dim);background:transparent;border:1px solid var(--cream-faint);border-radius:5px;padding:4px 8px;cursor:pointer;transition:all 0.18s}
+.doc-mini:hover{border-color:var(--ember);color:var(--ember)}
+
+.ws-empty{font-size:12px;color:var(--cream-faint);font-style:italic;text-align:center;padding:1.6rem 1rem;line-height:1.7}
+
+/* ════ BILLING ════ */
+.billing-row{display:flex;gap:2.2rem;flex-wrap:wrap;align-items:center;font-size:13px;color:var(--cream-mid)}
+.billing-row .stat-label{font-size:9.5px;letter-spacing:0.1em;text-transform:uppercase;color:var(--cream-faint);display:block;margin-bottom:4px}
+.billing-row .stat-val{font-size:20px;color:var(--cream);font-weight:400;font-family:'Cormorant Garamond',serif}
+.billing-row input.modal-input{width:90px}
+.billing-note{font-size:11px;color:var(--cream-faint);margin-top:1rem;line-height:1.6}
+
+/* ════ TOAST / MODAL ════ */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--earth-lift);border:1px solid var(--ember);color:var(--cream);font-size:12px;padding:8px 16px;border-radius:7px;opacity:0;transition:all 0.3s;pointer-events:none;white-space:nowrap;z-index:120}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.modal-overlay{position:fixed;inset:0;background:rgba(10,6,2,0.85);z-index:80;display:none;align-items:center;justify-content:center;padding:1.5rem}
+.modal-overlay.open{display:flex}
+.modal{background:var(--earth-mid);border:1px solid var(--cream-faint);border-radius:12px;padding:1.5rem;width:100%;max-width:440px;animation:riseIn 0.3s ease;max-height:85vh;overflow-y:auto}
+@keyframes riseIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.modal-title{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:400;color:var(--cream);margin-bottom:0.6rem}
+.modal-body{font-size:13px;color:var(--cream-mid);line-height:1.75;margin-bottom:1.25rem;white-space:pre-wrap}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end}
+.modal-actions .modal-input{width:100%;margin-bottom:1rem}
+.modal-btn{font-family:inherit;font-size:12px;padding:8px 16px;border-radius:7px;cursor:pointer;transition:all 0.18s;border:1px solid var(--cream-faint);background:transparent;color:var(--cream-dim)}
+.modal-btn.primary{background:var(--ember);border-color:var(--ember);color:var(--earth);font-weight:600}
+.modal-btn.primary:hover{background:var(--ember-warm)}
+.modal-btn:not(.primary):hover{border-color:var(--ember);color:var(--ember)}
+.modal-btn.danger:hover{border-color:var(--red-err);color:var(--red-err)}
+#modal-input.modal-input{width:100%;margin-bottom:1rem;display:block}
+
+@media(max-width:600px){
+  .op-main{padding:1.6rem 1rem 3rem}
+  .op-intro h1{font-size:26px}
+  .billing-row{gap:1.4rem}
+}
+</style>
+</head>
+<body>
+
+<!-- ════ KEY SCREEN ════ -->
+<div class="key-screen" id="key-screen">
+  <svg class="flame-icon" id="flame-svg" viewBox="0 0 52 64" fill="none">
+    <path d="M26 4C26 4 36 16 36 26C36 31.5 32.5 36 26 36C19.5 36 16 31.5 16 26C16 16 26 4 26 4Z" stroke="#f0e8d8" stroke-width="2"/>
+    <path d="M26 36C26 36 20 44 20 50C20 55.5 22.7 60 26 60C29.3 60 32 55.5 32 50C32 44 26 36 26 36Z" stroke="#f0e8d8" stroke-width="2"/>
+    <circle cx="26" cy="50" r="4" fill="#f0e8d8" opacity="0.4"/>
+    <path d="M18 22C18 22 14 28 16 34" stroke="#f0e8d8" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
+    <path d="M34 22C34 22 38 28 36 34" stroke="#f0e8d8" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
+  </svg>
+  <div class="key-input-wrap">
+    <input class="key-input" id="key-input" type="text" placeholder="enter your key"
+      autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+      oninput="onKeyInput(this)" onkeydown="onKeyDown(event)"/>
+    <div class="key-hint" id="key-hint">&nbsp;</div>
+  </div>
+  <div class="key-tagline">Your key opens your seat — and your team's.</div>
+</div>
+
+<!-- ════ APP ════ -->
+<div class="app-shell" id="app-shell">
+
+  <header class="op-header">
+    <div class="wordmark"><span class="wm-name">Counterpart</span><span class="op-pill">Operator</span></div>
+    <div class="op-header-right">
+      <span class="key-badge">Signed in as <b id="key-label"></b></span>
+      <button class="foot-link" onclick="signOut()">Sign out</button>
+    </div>
+  </header>
+
+  <main class="op-main">
+
+    <div class="op-intro">
+      <h1>Your <em>Operator Stack</em></h1>
+      <p>Issue a key for each person on your team — they sign in at the Counterpart entry screen with it, exactly the way you do. No new system, no separate accounts. Revoke a seat the moment someone leaves, and anything you write below as standing context reaches every seat automatically.</p>
+      <input class="org-name-input" id="org-name" placeholder="Name your organisation (shown only to you, here)" oninput="onOrgNameInput()">
+    </div>
+
+    <section class="op-card">
+      <div class="op-card-head"><h2>Standing context</h2></div>
+      <p class="ctx-desc">Shared across every seat in your organisation — background your team shouldn't have to repeat. Combined with whatever each person adds for their own situations.</p>
+      <textarea class="ctx-area" id="org-context" oninput="onOrgCtxInput()" placeholder="e.g. We are a small legal aid clinic serving tenants in [region]. Most clients are dealing with eviction notices, repair disputes, and deposit recovery. Use plain language — many clients are not native English speakers."></textarea>
+      <div class="ctx-save" id="ctx-save">&nbsp;</div>
+    </section>
+
+    <section class="op-card">
+      <div class="op-card-head"><h2>Seats</h2></div>
+      <div class="seats-summary" id="seats-summary"></div>
+
+      <div class="issue-row">
+        <div class="field">
+          <label>Name</label>
+          <input class="modal-input" id="seat-label" placeholder="e.g. Akosua">
+        </div>
+        <div class="field">
+          <label>Valid for</label>
+          <select class="modal-input" id="seat-duration">
+            <option value="30">30 days</option>
+            <option value="90">90 days</option>
+            <option value="365" selected>1 year</option>
+          </select>
+        </div>
+        <button class="new-btn" onclick="issueSeat()"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Issue seat</button>
+      </div>
+
+      <div class="seats-table-wrap">
+        <table class="seats-table">
+          <thead><tr><th>Name</th><th>Key</th><th>Valid</th><th>Status</th><th></th></tr></thead>
+          <tbody id="seats-tbody"></tbody>
+        </table>
+      </div>
+      <div class="ws-empty" id="seats-empty" style="display:none">No seats issued yet — issue your first one above.</div>
+    </section>
+
+    <section class="op-card">
+      <div class="op-card-head"><h2>Billing overview</h2></div>
+      <div class="billing-row">
+        <div><span class="stat-label">Active seats</span><span class="stat-val" id="bill-active">0</span></div>
+        <div class="field" style="display:inline-flex;flex-direction:column;gap:5px">
+          <span class="stat-label">Rate / seat / month ($)</span>
+          <input class="modal-input" id="bill-rate" type="number" min="0" step="0.5" oninput="onRateInput()">
+        </div>
+        <div><span class="stat-label">Estimated monthly total</span><span class="stat-val" id="bill-total">$0.00</span></div>
+      </div>
+      <div class="billing-note">Estimate only, for your own records — nothing here triggers a charge or payment. Consolidate this figure into however you currently bill or budget for your team's access.</div>
+    </section>
+
+  </main>
+</div>
+
+<!-- toast / modal -->
+<div class="toast" id="toast"></div>
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-title" id="modal-title"></div>
+    <div class="modal-body" id="modal-body"></div>
+    <input class="modal-input" id="modal-input" style="display:none">
+    <div class="modal-actions" id="modal-actions"></div>
+  </div>
+</div>
+
+<script>
+/* ════════ CONFIG ════════ */
+const ACCESS_KEYS = [
+  { key:"ESSENCE-2026",  validFrom:"2026-06-01", validTo:"2027-06-01" },
+  { key:"BAAFOUR-2026",  validFrom:"2026-06-01", validTo:"2027-06-01" },
+  { key:"BENJI-2026",    validFrom:"2026-06-01", validTo:"2027-06-01" },
+  { key:"EINSTJII-2026", validFrom:"2026-06-01", validTo:"2027-06-01" },
+];
+const REGISTRY_KEY = "cp_key_registry_v1";   // shared with index.html / partner.html / voice.html
+const OP_ACCESS_STORE = "cp_operator_access_v1";
+
+/* ════════ ACCESS ════════ */
+function todayUTC(){ return new Date().toISOString().slice(0,10); }
+function loadRegistry(){ try{ return JSON.parse(localStorage.getItem(REGISTRY_KEY)||"[]"); }catch(e){ return []; } }
+function saveRegistry(list){ try{ localStorage.setItem(REGISTRY_KEY,JSON.stringify(list)); }catch(e){} }
+function validateKey(input){
+  const n=input.trim().toUpperCase(), today=todayUTC();
+  for(const e of ACCESS_KEYS){
+    if(e.key===n){
+      if(today>=e.validFrom && today<=e.validTo) return {valid:true,key:e.key};
+      if(today<e.validFrom) return {valid:false,reason:"This key isn't active yet."};
+      return {valid:false,reason:"This key has expired."};
+    }
+  }
+  for(const e of loadRegistry()){
+    if(e.key===n){
+      if(e.revoked)           return {valid:false,reason:"This key has been revoked."};
+      if(today<e.validFrom)   return {valid:false,reason:"This key isn't active yet."};
+      if(today>e.validTo)     return {valid:false,reason:"This key has expired."};
+      return {valid:true,key:e.key};
+    }
+  }
+  return {valid:false,reason:null};
+}
+function storeAccess(key){ try{ localStorage.setItem(OP_ACCESS_STORE,JSON.stringify({key})); }catch(e){} }
+function checkStoredAccess(){ try{ const s=localStorage.getItem(OP_ACCESS_STORE); if(!s)return false; return validateKey(JSON.parse(s).key).valid; }catch(e){ return false; } }
+
+/* ════════ STATE ════════ */
+let currentKey="";
+let registry=[];
+let ctxTimer=null, nameTimer=null;
+
+function org(){ return currentKey; }
+function mySeats(){ return registry.filter(e=>e.org===org()); }
+function orgGet(k,fallback){ try{ const v=localStorage.getItem(`cp_org_${k}_v1__${org()}`); return v===null?fallback:v; }catch(e){ return fallback; } }
+function orgSet(k,v){ try{ localStorage.setItem(`cp_org_${k}_v1__${org()}`,v); }catch(e){} }
+
+/* ════════ SEAT KEY GENERATION ════════ */
+function genSeatKey(){
+  const tag=(org().split("-")[0]||"SEAT").toUpperCase().slice(0,10);
+  let key;
+  do{ key=`${tag}-${Math.random().toString(36).slice(2,8).toUpperCase()}`; }
+  while(ACCESS_KEYS.some(e=>e.key===key)||registry.some(e=>e.key===key));
+  return key;
+}
+
+/* ════════ SEATS ════════ */
+const STATUS_LABEL={active:"Active",revoked:"Revoked",expired:"Expired",scheduled:"Scheduled"};
+function seatStatus(e){
+  if(e.revoked) return "revoked";
+  const t=todayUTC();
+  if(t<e.validFrom) return "scheduled";
+  if(t>e.validTo) return "expired";
+  return "active";
+}
+function issueSeat(){
+  const labelInput=document.getElementById("seat-label");
+  const label=labelInput.value.trim();
+  if(!label){ toast("Give this seat a name first"); labelInput.focus(); return; }
+  const days=parseInt(document.getElementById("seat-duration").value,10);
+  const from=todayUTC();
+  const to=new Date(Date.now()+days*86400000).toISOString().slice(0,10);
+  const key=genSeatKey();
+  registry.push({key,validFrom:from,validTo:to,revoked:false,org:org(),label,issuedAt:Date.now()});
+  saveRegistry(registry);
+  labelInput.value="";
+  renderSeats();
+  infoModal("Seat issued",`${label}\n\nKey: ${key}\nValid: ${from} → ${to}\n\nShare this key with them. They enter it at the Counterpart entry screen — it unlocks their seat immediately, and your standing context above is already waiting for them.`,true);
+}
+function toggleRevoke(key){
+  const e=registry.find(x=>x.key===key); if(!e)return;
+  if(e.revoked){ e.revoked=false; saveRegistry(registry); renderSeats(); toast("Seat reactivated"); }
+  else{ confirmModal("Revoke this seat?",`${e.label} (${e.key}) will lose access immediately.`,"Revoke",()=>{ e.revoked=true; saveRegistry(registry); renderSeats(); toast("Seat revoked"); }); }
+}
+function extendSeat(key){
+  const e=registry.find(x=>x.key===key); if(!e)return;
+  promptModal("Extend access until…",`${e.label} — currently valid until ${e.validTo}. Enter a new end date (YYYY-MM-DD).`,e.validTo,(val)=>{
+    const v=val.trim();
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(v)){ toast("Use YYYY-MM-DD"); return; }
+    e.validTo=v; saveRegistry(registry); renderSeats(); toast("Updated");
+  });
+}
+function deleteSeat(key){
+  const e=registry.find(x=>x.key===key); if(!e)return;
+  confirmModal("Remove this seat?",`${e.label} (${e.key}) will be permanently removed from your seat list.`,"Remove",()=>{
+    registry=registry.filter(x=>x.key!==key); saveRegistry(registry); renderSeats();
+  });
+}
+function copySeatKey(key){ navigator.clipboard.writeText(key).then(()=>toast("Key copied")); }
+
+function renderSeats(){
+  const seats=mySeats().sort((a,b)=>(b.issuedAt||0)-(a.issuedAt||0));
+  const tbody=document.getElementById("seats-tbody");
+  document.getElementById("seats-empty").style.display=seats.length?"none":"block";
+  tbody.innerHTML=seats.map(e=>{
+    const st=seatStatus(e);
+    return `<tr>
+      <td>${esc(e.label||"—")}</td>
+      <td><code class="seat-key">${esc(e.key)}</code></td>
+      <td>${e.validFrom} → ${e.validTo}</td>
+      <td><span class="status-pill status-${st}">${STATUS_LABEL[st]}</span></td>
+      <td class="seat-actions">
+        <button class="doc-mini" onclick="copySeatKey('${e.key}')">Copy</button>
+        <button class="doc-mini" onclick="extendSeat('${e.key}')">Extend</button>
+        <button class="doc-mini" onclick="toggleRevoke('${e.key}')">${e.revoked?"Reactivate":"Revoke"}</button>
+        <button class="doc-mini" onclick="deleteSeat('${e.key}')">Remove</button>
+      </td>
+    </tr>`;
+  }).join("");
+  renderSummary(seats);
+}
+function renderSummary(seats){
+  const counts={active:0,revoked:0,expired:0,scheduled:0};
+  seats.forEach(e=>counts[seatStatus(e)]++);
+  document.getElementById("seats-summary").innerHTML=
+    `<div class="summary-pill">Total <b>${seats.length}</b></div>`+
+    `<div class="summary-pill">Active <b>${counts.active}</b></div>`+
+    (counts.scheduled?`<div class="summary-pill">Scheduled <b>${counts.scheduled}</b></div>`:"")+
+    (counts.expired?`<div class="summary-pill">Expired <b>${counts.expired}</b></div>`:"")+
+    (counts.revoked?`<div class="summary-pill">Revoked <b>${counts.revoked}</b></div>`:"");
+  renderBilling(counts.active);
+}
+function renderBilling(activeCount){
+  document.getElementById("bill-active").textContent=activeCount;
+  const rate=parseFloat(document.getElementById("bill-rate").value)||0;
+  document.getElementById("bill-total").textContent="$"+(activeCount*rate).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+function onRateInput(){
+  orgSet("rate",document.getElementById("bill-rate").value);
+  renderBilling(mySeats().filter(e=>seatStatus(e)==="active").length);
+}
+
+/* ════════ ORG NAME / CONTEXT ════════ */
+function onOrgNameInput(){
+  clearTimeout(nameTimer);
+  nameTimer=setTimeout(()=>orgSet("name",document.getElementById("org-name").value.trim()),400);
+}
+function onOrgCtxInput(){
+  clearTimeout(ctxTimer);
+  document.getElementById("ctx-save").textContent="saving…";
+  ctxTimer=setTimeout(()=>{
+    orgSet("context",document.getElementById("org-context").value);
+    document.getElementById("ctx-save").textContent="saved ✓";
+    setTimeout(()=>document.getElementById("ctx-save").innerHTML="&nbsp;",1500);
+  },500);
+}
+
+/* ════════ HELPERS ════════ */
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function toast(msg,dur=2200){ const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),dur); }
+function signOut(){ confirmModal("Sign out?","You'll need your key to return. Your seats and context stay saved on this device.","Sign out",()=>{ try{localStorage.removeItem(OP_ACCESS_STORE);}catch(e){} location.reload(); }); }
+
+/* ════════ MODALS ════════ */
+function closeModal(){ document.getElementById("modal").classList.remove("open"); }
+function confirmModal(title,body,okLabel,onOk){
+  document.getElementById("modal-title").textContent=title; document.getElementById("modal-body").textContent=body;
+  document.getElementById("modal-input").style.display="none";
+  document.getElementById("modal-actions").innerHTML="";
+  const cancel=mkBtn("Cancel","",closeModal); const ok=mkBtn(okLabel,"primary",()=>{ closeModal(); onOk&&onOk(); });
+  if(/revoke|remove|delete|sign out/i.test(okLabel)) ok.classList.add("danger");
+  document.getElementById("modal-actions").append(cancel,ok); document.getElementById("modal").classList.add("open");
+}
+function promptModal(title,body,val,onOk){
+  document.getElementById("modal-title").textContent=title; document.getElementById("modal-body").textContent=body||"";
+  const inp=document.getElementById("modal-input"); inp.style.display="block"; inp.value=val||"";
+  document.getElementById("modal-actions").innerHTML="";
+  const cancel=mkBtn("Cancel","",closeModal); const ok=mkBtn("Save","primary",()=>{ closeModal(); onOk&&onOk(inp.value); });
+  document.getElementById("modal-actions").append(cancel,ok); document.getElementById("modal").classList.add("open"); setTimeout(()=>inp.focus(),80);
+  inp.onkeydown=e=>{ if(e.key==="Enter"){ closeModal(); onOk&&onOk(inp.value); } };
+}
+function infoModal(title,body,closeable){
+  document.getElementById("modal-title").textContent=title; document.getElementById("modal-body").textContent=body;
+  document.getElementById("modal-input").style.display="none"; document.getElementById("modal-actions").innerHTML="";
+  if(closeable){
+    const copy=mkBtn("Copy key","",()=>{ const m=body.match(/Key:\s*(\S+)/); navigator.clipboard.writeText(m?m[1]:body).then(()=>toast("Copied")); });
+    const ok=mkBtn("Done","primary",closeModal);
+    document.getElementById("modal-actions").append(copy,ok);
+  }
+  document.getElementById("modal").classList.add("open");
+}
+function mkBtn(label,cls,fn){ const b=document.createElement("button"); b.className="modal-btn "+(cls||""); b.textContent=label; b.onclick=fn; return b; }
+
+/* ════════ KEY SCREEN ════════ */
+function onKeyInput(input){ document.getElementById("flame-svg").classList.toggle("alive",input.value.length>0);
+  const h=document.getElementById("key-hint"); h.className="key-hint"; h.innerHTML="&nbsp;"; input.classList.remove("wrong"); }
+function onKeyDown(e){ if(e.key==="Enter"){ e.preventDefault(); attemptEntry(); } }
+function attemptEntry(){
+  const input=document.getElementById("key-input"), hint=document.getElementById("key-hint");
+  const val=input.value.trim(); if(!val)return;
+  const res=validateKey(val);
+  if(res.valid){ storeAccess(res.key); currentKey=res.key; input.style.opacity="0"; document.getElementById("flame-svg").style.opacity="0";
+    setTimeout(enterApp,380); }
+  else{ input.classList.add("wrong"); hint.className="key-hint err"; hint.textContent=res.reason||"That key isn't recognised.";
+    setTimeout(()=>{ input.classList.remove("wrong"); input.value=""; hint.className="key-hint"; hint.innerHTML="&nbsp;"; document.getElementById("flame-svg").classList.remove("alive"); input.style.opacity="1"; },1600); }
+}
+
+/* ════════ BOOT ════════ */
+function enterApp(){
+  document.getElementById("key-screen").classList.add("gone");
+  document.getElementById("app-shell").classList.add("ready");
+  document.getElementById("key-label").textContent=currentKey;
+  registry=loadRegistry();
+  document.getElementById("org-name").value=orgGet("name","");
+  document.getElementById("org-context").value=orgGet("context","");
+  document.getElementById("bill-rate").value=orgGet("rate","9");
+  renderSeats();
+}
+document.addEventListener("keydown",e=>{ if(e.key==="Escape") closeModal(); });
+(function boot(){
+  try{ const s=localStorage.getItem(OP_ACCESS_STORE); if(s){ const p=JSON.parse(s); if(validateKey(p.key).valid) currentKey=p.key; } }catch(e){}
+  if(checkStoredAccess()){ enterApp(); }
+  else{ document.getElementById("key-screen").classList.remove("gone"); setTimeout(()=>document.getElementById("key-input").focus(),100); }
+})();
+</script>
+</body>
+</html>
