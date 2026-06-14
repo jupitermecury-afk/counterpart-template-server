@@ -470,11 +470,8 @@ button{font-family:inherit}
 // Set this to YOUR server's Railway URL after you deploy it (see README.md
 // in the parent folder). Example: "https://my-company-counterpart.up.railway.app"
 const SERVER = "https://counterpart-template-server-production.up.railway.app";
-// Optional — must match the CLIENT_SECRET variable set on your Railway
-// server. Generate one with:
-//   node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"
-// Leave as "" to skip this check entirely.
-const CLIENT_SECRET = "";
+// Must match the CLIENT_SECRET variable set on your Railway server.
+const CLIENT_SECRET = "704b264a308f905f2ee8a04b258f5db56222475e82158154";
 function cpHeaders(){
   const h = {"Content-Type":"application/json"};
   if(CLIENT_SECRET) h["X-Client-Secret"] = CLIENT_SECRET;
