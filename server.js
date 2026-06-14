@@ -4,7 +4,17 @@ const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const app = express();
-app.use(cors());
+
+// ── CORS ─────────────────────────────────────────────────────────────────────
+// By default, accepts requests from any origin. To restrict to your deployed
+// front end(s), set ALLOWED_ORIGIN to a comma-separated list of origins, e.g.
+//   ALLOWED_ORIGIN=https://my-company-counterpart.netlify.app
+const allowedOrigins = (process.env.ALLOWED_ORIGIN || '')
+  .split(',')
+  .map(o => o.trim())
+  .filter(Boolean);
+
+app.use(cors(allowedOrigins.length ? { origin: allowedOrigins } : {}));
 app.use(express.json());
 
 // ── OPTIONAL SHARED SECRET ──────────────────────────────────────────────────

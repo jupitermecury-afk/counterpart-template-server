@@ -60,7 +60,8 @@ below — they take about 10 minutes.
    |---|---|---|
    | `ANTHROPIC_API_KEY` | Yes | Your key from [console.anthropic.com](https://console.anthropic.com) |
    | `TAVILY_API_KEY` | Optional | Your key from [tavily.com](https://tavily.com) — enables live web search |
-   | `CLIENT_SECRET` | Recommended | A random string — see "Optional extra protection" below. **Generate your own** rather than reusing the value in `.env.example` (that one is public). |
+   | `CLIENT_SECRET` | Recommended | A random string — see "Optional extra protection" below |
+   | `ALLOWED_ORIGIN` | Recommended | Your Netlify URL once you have it — see "Lock down CORS" below |
 
 5. Railway will build and deploy automatically. Once it's live, open the
    **Settings → Networking** tab and click **Generate Domain** to get a public
@@ -78,13 +79,11 @@ use up your Anthropic credits. Setting `CLIENT_SECRET` to a random string
 closes that off — the server then rejects any request that doesn't include a
 matching `X-Client-Secret` header. If you set this, you must also set the same
 value in `CLIENT_SECRET` inside `frontend/index.html` and
-`frontend/voice.html` (step 3 below). If you leave it blank, everything still
+`frontend/voice.html` (step 2 below). If you leave it blank, everything still
 works — you're just trusting that your server URL stays private.
 
-The value committed in `.env.example` and the two frontend files is just a
-**placeholder so the template runs out of the box**. Because this repo is
-public on GitHub, that exact value is visible to anyone — generate your own
-before you go live:
+Both `.env.example` and the two frontend files ship with this **blank** —
+nothing to find or copy in the public repo. Generate your own value:
 
 ```
 node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"
@@ -92,10 +91,29 @@ node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"
 
 Set the result as `CLIENT_SECRET` on Railway **and** as the `CLIENT_SECRET`
 constant in both `frontend/index.html` and `frontend/voice.html` (step 2
-below) — all three must match. This stops random bots that hit your server
-URL directly. It won't stop someone who specifically reads your deployed
-site's source code (the secret has to be in the front end for it to send it)
-— for that, the [rate limiting](#rate-limiting) below caps the damage.
+below) — all three must match. This stops random bots/scripts that hit your
+server URL directly without ever loading your site. It won't stop someone who
+specifically reads your deployed site's source code (the secret has to be in
+the front end for it to send it) — for that, see "Lock down CORS" and
+[rate limiting](#rate-limiting) below, both of which cap the damage.
+
+### Lock down CORS: `ALLOWED_ORIGIN`
+
+By default the server accepts requests from any website, which makes it easy
+to test locally but also means anyone could write a page (or run a snippet in
+their browser console) that calls your server from elsewhere. Once you know
+your Netlify URL (step 3 below), set:
+
+```
+ALLOWED_ORIGIN=https://my-company-counterpart.netlify.app
+```
+
+on Railway. The server will then reject browser requests from any other
+origin. You can list more than one origin separated by commas (e.g. if you
+also test from `http://localhost:3000`). This doesn't stop direct
+`curl`/script requests — that's what `CLIENT_SECRET` and rate limiting are
+for — but it closes off the most casual "open this in dev tools and poke it"
+path.
 
 ---
 
@@ -106,15 +124,13 @@ Open `frontend/index.html` and `frontend/voice.html`. Near the top of the
 
 ```js
 const SERVER = "https://YOUR-RAILWAY-APP.up.railway.app";
-const CLIENT_SECRET = "76c5a3f71b515242a2a0707316bf41399c8e5d2431d507e2";
+const CLIENT_SECRET = "";
 ```
 
 - Replace `SERVER` with the Railway URL from step 1.5.
-- `CLIENT_SECRET` is pre-filled with a placeholder value that matches
-  `.env.example`, so the template works without any changes. Before going
-  live, generate your own value (see "Optional extra protection" above) and
-  put it here **and** in your Railway `CLIENT_SECRET` variable — both files
-  must use the same value as each other and as the server.
+- If you set `CLIENT_SECRET` on Railway (see "Optional extra protection"
+  above), generate a value and put the **same** value here in both files —
+  otherwise leave it as `""`.
 
 ---
 
