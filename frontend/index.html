@@ -33,7 +33,7 @@ button{font-family:inherit}
 
 /* ════ KEY SCREEN ════ */
 .key-screen{
-  position:fixed;inset:0;z-index:60;background:var(--earth);
+  position:fixed;inset:0;z-index:60;background:var(--earth-deep);
   display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem;
 }
 .key-screen.gone{display:none}
@@ -43,7 +43,7 @@ button{font-family:inherit}
 .key-input{
   width:100%;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:400;letter-spacing:0.18em;
   text-align:center;text-transform:uppercase;background:transparent;border:none;
-  border-bottom:1px solid var(--cream-faint);color:var(--cream);padding:10px 0 14px;outline:none;
+  border-bottom:1px solid var(--cream-mid);color:var(--cream);padding:10px 0 14px;outline:none;
   transition:border-color 0.25s;caret-color:var(--ember)
 }
 .key-input::placeholder{color:var(--cream-dim);font-weight:300;letter-spacing:0.06em;text-transform:none}
@@ -139,7 +139,7 @@ button{font-family:inherit}
 .welcome-rule{width:32px;height:1px;background:var(--ember);margin-bottom:2rem}
 .welcome-head{font-family:'DM Sans',sans-serif;font-size:44px;font-weight:300;line-height:1.12;letter-spacing:-0.02em;color:var(--cream);margin-bottom:1.25rem}
 .welcome-head em{font-style:italic;color:var(--ember-warm)}
-.welcome-body{font-size:15px;font-weight:300;color:var(--cream-mid);line-height:1.9;max-width:480px}
+.welcome-body{font-size:16px;font-weight:300;color:var(--cream-mid);line-height:1.9;max-width:480px}
 .starter-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:1.8rem}
 .starter-chip{
   font-size:12px;color:var(--cream-mid);background:var(--earth-mid);border:1px solid var(--cream-faint);
@@ -152,14 +152,14 @@ button{font-family:inherit}
 @keyframes riseIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 .msg-person{display:flex;justify-content:flex-end}
 .msg-person-bubble{max-width:82%;background:var(--earth-lift);border:1px solid var(--cream-faint);
-  border-radius:16px 16px 2px 16px;padding:12px 16px;font-size:15px;font-weight:300;color:var(--cream);line-height:1.75;word-wrap:break-word}
+  border-radius:16px 16px 2px 16px;padding:12px 16px;font-size:16px;font-weight:300;color:var(--cream);line-height:1.75;word-wrap:break-word}
 .msg-person-files{margin-top:7px;display:flex;flex-wrap:wrap;gap:5px}
 .mpf{font-size:10px;color:var(--cream-dim);background:var(--earth-deep);border:1px solid var(--cream-faint);border-radius:4px;padding:2px 7px}
 .msg-cp{display:flex;gap:12px;align-items:flex-start}
 .cp-mark{flex-shrink:0;width:26px;height:26px;border-radius:50%;background:var(--ember-dim);border:1px solid var(--ember);display:flex;align-items:center;justify-content:center;margin-top:3px}
 .cp-mark-dot{width:6px;height:6px;border-radius:50%;background:var(--ember-warm);animation:breathe 3s ease-in-out infinite}
 .msg-cp-inner{flex:1;min-width:0}
-.msg-cp-bubble{font-size:15px;font-weight:300;color:var(--cream-mid);line-height:1.9;word-wrap:break-word}
+.msg-cp-bubble{font-size:16px;font-weight:300;color:var(--cream-mid);line-height:1.9;word-wrap:break-word}
 .msg-cp-bubble p{margin-bottom:0.75em}
 .msg-cp-bubble p:last-child{margin-bottom:0}
 .msg-cp-bubble strong{color:var(--cream);font-weight:600}
@@ -206,7 +206,7 @@ button{font-family:inherit}
 .upload-thumb-doc{width:46px;height:46px;border-radius:5px;background:var(--earth-light);border:1px solid var(--cream-faint);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;flex-shrink:0}
 .upload-thumb-doc span{font-size:8px;color:var(--cream-dim);text-align:center;padding:0 2px;line-height:1.2}
 .upload-remove{position:absolute;top:1px;right:1px;width:15px;height:15px;border-radius:50%;background:rgba(0,0,0,0.72);border:none;color:#fff;font-size:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1}
-.msg-textarea{flex:1;background:transparent;border:none;outline:none;font-family:inherit;font-size:15px;font-weight:300;color:var(--cream);resize:none;max-height:180px;line-height:1.65;caret-color:var(--ember);padding:4px 0}
+.msg-textarea{flex:1;background:transparent;border:none;outline:none;font-family:inherit;font-size:16px;font-weight:300;color:var(--cream);resize:none;max-height:180px;line-height:1.65;caret-color:var(--ember);padding:4px 0}
 .msg-textarea::placeholder{color:var(--cream-dim)}
 .input-right{display:flex;flex-direction:column;gap:6px;align-items:flex-end}
 .input-tools{display:flex;gap:6px;align-items:center}
