@@ -60,7 +60,7 @@ below — they take about 10 minutes.
    |---|---|---|
    | `ANTHROPIC_API_KEY` | Yes | Your key from [console.anthropic.com](https://console.anthropic.com) |
    | `TAVILY_API_KEY` | Optional | Your key from [tavily.com](https://tavily.com) — enables live web search |
-   | `CLIENT_SECRET` | Optional | Any random string — see "Optional extra protection" below |
+   | `CLIENT_SECRET` | Recommended | A random string — see "Optional extra protection" below. **Generate your own** rather than reusing the value in `.env.example` (that one is public). |
 
 5. Railway will build and deploy automatically. Once it's live, open the
    **Settings → Networking** tab and click **Generate Domain** to get a public
@@ -81,6 +81,22 @@ value in `CLIENT_SECRET` inside `frontend/index.html` and
 `frontend/voice.html` (step 3 below). If you leave it blank, everything still
 works — you're just trusting that your server URL stays private.
 
+The value committed in `.env.example` and the two frontend files is just a
+**placeholder so the template runs out of the box**. Because this repo is
+public on GitHub, that exact value is visible to anyone — generate your own
+before you go live:
+
+```
+node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"
+```
+
+Set the result as `CLIENT_SECRET` on Railway **and** as the `CLIENT_SECRET`
+constant in both `frontend/index.html` and `frontend/voice.html` (step 2
+below) — all three must match. This stops random bots that hit your server
+URL directly. It won't stop someone who specifically reads your deployed
+site's source code (the secret has to be in the front end for it to send it)
+— for that, the [rate limiting](#rate-limiting) below caps the damage.
+
 ---
 
 ## 2. Configure the front end
@@ -90,12 +106,15 @@ Open `frontend/index.html` and `frontend/voice.html`. Near the top of the
 
 ```js
 const SERVER = "https://YOUR-RAILWAY-APP.up.railway.app";
-const CLIENT_SECRET = "";
+const CLIENT_SECRET = "76c5a3f71b515242a2a0707316bf41399c8e5d2431d507e2";
 ```
 
 - Replace `SERVER` with the Railway URL from step 1.5.
-- If you set `CLIENT_SECRET` on the server, put the **same value** here too.
-  Otherwise leave it as `""`.
+- `CLIENT_SECRET` is pre-filled with a placeholder value that matches
+  `.env.example`, so the template works without any changes. Before going
+  live, generate your own value (see "Optional extra protection" above) and
+  put it here **and** in your Railway `CLIENT_SECRET` variable — both files
+  must use the same value as each other and as the server.
 
 ---
 
@@ -133,6 +152,23 @@ the admin console) to cut someone off immediately.
 per-browser/per-device, not a shared database. For a small team sharing one
 admin's browser this is fine; if you need centrally-managed licensing across
 many devices, that's what the managed (Option A) deployment is for.
+
+---
+
+## Rate limiting
+
+The server caps how many `/counterpart` requests one visitor can make —
+60 requests per 15 minutes by default. This is a second line of defense: even
+if someone gets hold of your `CLIENT_SECRET`, they can't run away with your
+Anthropic bill. Tune it with two optional Railway variables:
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `RATE_LIMIT_WINDOW_MIN` | `15` | Length of the rate-limit window, in minutes |
+| `RATE_LIMIT_MAX` | `60` | Max `/counterpart` requests per visitor per window |
+
+If a visitor goes over the limit, they'll see a friendly "Too many requests"
+message until the window resets.
 
 ---
 

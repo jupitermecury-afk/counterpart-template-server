@@ -1,5 +1,6 @@
 const express = require('express');
 const cors    = require('cors');
+const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const app = express();
@@ -17,6 +18,18 @@ function checkSecret(req, res, next) {
   if (req.headers['x-client-secret'] === CLIENT_SECRET) return next();
   return res.status(401).json({ error: { message: 'Unauthorized' } });
 }
+
+// ── RATE LIMITING ────────────────────────────────────────────────────────────
+// Caps how many /counterpart requests a single visitor can make, so a
+// compromised secret or a stuck retry loop can't run away with your API bill.
+// Tune with RATE_LIMIT_WINDOW_MIN / RATE_LIMIT_MAX env vars if needed.
+const counterpartLimiter = rateLimit({
+  windowMs: (Number(process.env.RATE_LIMIT_WINDOW_MIN) || 15) * 60 * 1000,
+  max: Number(process.env.RATE_LIMIT_MAX) || 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: { message: 'Too many requests — please wait a few minutes and try again.' } }
+});
 
 // ── HEALTH CHECK ─────────────────────────────────────────────────────────────
 app.get('/', (req, res) => res.json({ status: 'ok', service: 'counterpart-server' }));
@@ -44,7 +57,7 @@ async function tavilySearch(query) {
 }
 
 // ── COUNTERPART ──────────────────────────────────────────────────────────────
-app.post('/counterpart', checkSecret, async (req, res) => {
+app.post('/counterpart', counterpartLimiter, checkSecret, async (req, res) => {
   const { model, max_tokens, system, messages, key_name } = req.body;
   console.log(`[Counterpart] key=${key_name || 'unknown'} messages=${messages?.length}`);
 
