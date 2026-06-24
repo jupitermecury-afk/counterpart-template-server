@@ -8,6 +8,11 @@ const apiRouter = require('./routes/api');
 
 const app = express();
 
+// Railway sits behind a reverse proxy that sets X-Forwarded-For. Without this,
+// express-rate-limit can't safely derive a client IP and logs a validation error
+// on every request (affects both the existing /counterpart limiter and the new one).
+app.set('trust proxy', 1);
+
 // ── CORS ─────────────────────────────────────────────────────────────────────
 // By default, accepts requests from any origin. To restrict to your deployed
 // front end(s), set ALLOWED_ORIGIN to a comma-separated list of origins, e.g.
