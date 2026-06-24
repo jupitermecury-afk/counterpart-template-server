@@ -37,6 +37,18 @@ const apiLimiter = rateLimit({
 });
 router.use(apiLimiter);
 
+// TEMPORARY diagnostic — admin-gated, reports which relevant env var NAMES (never values)
+// are actually present in this running container. Remove once DATABASE_URL is confirmed wired.
+router.get('/_debug/env', (req, res) => {
+  if (!process.env.ADMIN_SECRET || req.headers['x-admin-secret'] !== process.env.ADMIN_SECRET) {
+    return res.status(401).json({ error: 'unauthorized' });
+  }
+  const relevant = Object.keys(process.env).filter(k =>
+    /DATABASE|POSTGRES|PG[A-Z]|RAILWAY|ANTHROPIC|ADMIN_SECRET/i.test(k)
+  ).sort();
+  res.json({ relevantEnvVarNames: relevant });
+});
+
 // Without a configured database, every route below would throw on its first pool.query
 // (pg defaults to localhost:5432). Fail soft with a clear 503 instead of letting that happen.
 router.use((req, res, next) => {
