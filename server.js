@@ -2,6 +2,9 @@ const express = require('express');
 const cors    = require('cors');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
+const { migrate } = require('./db');
+const { startPresenceNudges } = require('./lib/pushNudge');
+const apiRouter = require('./routes/api');
 
 const app = express();
 
@@ -43,6 +46,11 @@ const counterpartLimiter = rateLimit({
 
 // ── HEALTH CHECK ─────────────────────────────────────────────────────────────
 app.get('/', (req, res) => res.json({ status: 'ok', service: 'counterpart-server' }));
+
+// ── MOBILE APP API ───────────────────────────────────────────────────────────
+// Real per-key DB auth (not the shared CLIENT_SECRET above), problem-scoped
+// persistence, SSE streaming, and tool-use wiring for the React Native app.
+app.use('/api', apiRouter);
 
 // ── TAVILY SEARCH HELPER ─────────────────────────────────────────────────────
 async function tavilySearch(query) {
@@ -154,6 +162,31 @@ Use this information naturally in your response. Do not announce that you search
   }
 });
 
+// ── ERROR HANDLER ────────────────────────────────────────────────────────────
+// Catches anything passed to next(err) (see asyncRoute in routes/api.js) so a bug
+// in the new mobile routes returns a JSON 500 instead of crashing the process.
+app.use((err, req, res, next) => {
+  console.error('[error]', err);
+  if (res.headersSent) return next(err);
+  res.status(500).json({ error: { message: err.message || 'internal error' } });
+});
+
+// Last-resort net: log and keep running rather than let a stray rejection take the
+// whole server (and the existing web app's routes with it) down.
+process.on('unhandledRejection', (err) => {
+  console.error('[unhandledRejection]', err);
+});
+
 // ── START ────────────────────────────────────────────────────────────────────
+// The existing routes (/, /counterpart) must keep serving the live web app even if
+// the new database isn't configured yet — so listen() never waits on migrate().
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Counterpart server running on port ${PORT}`));
+
+if (process.env.DATABASE_URL) {
+  migrate()
+    .then(() => startPresenceNudges())
+    .catch(err => console.error('[db] migration failed — /api routes will not work until this is fixed:', err));
+} else {
+  console.log('[db] DATABASE_URL not set — /api (mobile app) routes will fail until it is configured');
+}
