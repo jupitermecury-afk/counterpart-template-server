@@ -132,10 +132,12 @@ router.get('/threads/active', asyncRoute(async (req, res) => {
   res.json(await loadThreadState(result.rows[0].id));
 }));
 
-// ── All threads (for "The shape" — held threads list across problems) ───────
+// ── All threads (for browsing/switching between situations) ─────────────────
 router.get('/threads', asyncRoute(async (req, res) => {
   const result = await pool.query(
-    `SELECT id, status, created_at, updated_at FROM threads WHERE access_key_id = $1 ORDER BY updated_at DESC`,
+    `SELECT t.id, t.status, t.created_at, t.updated_at,
+            (SELECT content FROM turns WHERE thread_id = t.id ORDER BY id ASC LIMIT 1) AS preview
+     FROM threads t WHERE t.access_key_id = $1 ORDER BY t.updated_at DESC`,
     [req.accessKeyId]
   );
   res.json({ threads: result.rows });
