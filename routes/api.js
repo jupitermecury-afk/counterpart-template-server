@@ -128,7 +128,7 @@ router.get('/threads/active', asyncRoute(async (req, res) => {
     `SELECT id FROM threads WHERE access_key_id = $1 AND status = 'live' ORDER BY updated_at DESC LIMIT 1`,
     [req.accessKeyId]
   );
-  if (!result.rows[0]) return res.json({ thread: null });
+  if (!result.rows[0]) return res.json({ thread: null, turns: [], held: [], verification: [], artifacts: [] });
   res.json(await loadThreadState(result.rows[0].id));
 }));
 
