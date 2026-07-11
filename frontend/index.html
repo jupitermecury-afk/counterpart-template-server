@@ -14,6 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Open+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
 :root{
   --earth:#ffffff; --earth-mid:#eef1f5; --earth-light:#e2e8f0; --earth-lift:#f7f9fb; --earth-deep:#f3f5f8;
@@ -316,15 +317,17 @@ button{font-family:inherit}
 .scrim.on{display:block}
 
 /* ════ RESPONSIVE ════ */
-@media(max-width:1080px){
+.ws-close{display:none}
+@media(max-width:1024px){
+  :root{--sb-w:min(80vw,320px)}
   .workspace{position:fixed;right:0;top:0;height:100vh;z-index:50;box-shadow:-10px 0 40px rgba(0,0,0,0.4)}
   .workspace.hidden{margin-right:calc(-1 * var(--ws-w))}
-}
-@media(max-width:760px){
-  :root{--sb-w:80vw}
+  .ws-close{display:flex;flex-shrink:0;margin:6px 8px 6px 0}
   .sidebar{position:fixed;left:0;top:0;height:100vh;z-index:50;box-shadow:10px 0 40px rgba(0,0,0,0.4)}
   .sidebar.closed{margin-left:calc(-1 * var(--sb-w))}
   .hdr-toggle{display:flex}
+}
+@media(max-width:640px){
   .welcome-head{font-size:40px}
   .convo-inner{padding:1.5rem 1rem 1rem}
   .input-zone{padding:0.5rem 1rem 0.8rem}
@@ -434,6 +437,7 @@ button{font-family:inherit}
       <button class="ws-tab active" onclick="switchTab('steps')" id="tab-steps">Steps <span class="badge" id="badge-steps">0</span></button>
       <button class="ws-tab" onclick="switchTab('docs')" id="tab-docs">Documents <span class="badge" id="badge-docs">0</span></button>
       <button class="ws-tab" onclick="switchTab('context')" id="tab-context">Context</button>
+      <button class="icon-btn ws-close" onclick="toggleWorkspace()" title="Close"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
     </div>
     <div class="ws-body">
       <div class="ws-pane on" id="pane-steps">
@@ -486,6 +490,7 @@ function cpHeaders(){
 }
 const MODEL  = "claude-sonnet-4-6";
 const DEPTH_TOKENS = { brief:800, standard:1800, deep:3600 };
+if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
 const ACCESS_KEYS = [
   { key:"ESSENCE-2026",  validFrom:"2026-06-01", validTo:"2027-06-01" },
@@ -596,7 +601,7 @@ function newSituation(focus=true){
   const s={ id:uid(), title:"", created:Date.now(), updated:Date.now(), pinned:false, messages:[], steps:[], docs:[], context:"" };
   sits.unshift(s); setActive(s.id); saveSits(); openSituation(s.id); renderSitList();
   if(focus) focusInput();
-  if(window.innerWidth<=760) closeDrawers();
+  if(window.innerWidth<=1024) closeDrawers();
 }
 function openSituation(id){
   setActive(id);
@@ -772,6 +777,12 @@ async function sendMessage(){
   let content=[];
   for(const f of pendingFiles){
     if(f.type.startsWith("image/")){ const b64=await fileToBase64(f); content.push({type:"image",source:{type:"base64",media_type:f.type,data:b64}}); }
+    else if(f.type==="application/pdf" || /\.pdf$/i.test(f.name)){
+      try{
+        const t=await extractPdfText(f);
+        content.push({type:"text",text:`[File: ${f.name}]\n${t || "(This PDF has no extractable text — it may be a scanned image. Tell the person you could not read it directly and ask them to describe or paste the content.)"}`});
+      }catch(e){ content.push({type:"text",text:`[File: ${f.name}] (could not read this PDF)`}); }
+    }
     else { try{ const t=await f.text(); content.push({type:"text",text:`[File: ${f.name}]\n${t}`}); }catch(e){ content.push({type:"text",text:`[File: ${f.name}] (could not read)`}); } }
   }
   if(text) content.push({type:"text",text});
@@ -904,6 +915,18 @@ async function summarise(){
 /* ════════ FILES ════════ */
 function handleFiles(input){ Array.from(input.files).forEach(f=>pendingFiles.push(f)); input.value=""; renderPreviews(); }
 function removeFile(i){ pendingFiles.splice(i,1); renderPreviews(); }
+async function extractPdfText(file){
+  if(!window.pdfjsLib) throw new Error("pdf.js not loaded");
+  const buf=await file.arrayBuffer();
+  const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+  let text="";
+  for(let i=1;i<=pdf.numPages;i++){
+    const page=await pdf.getPage(i);
+    const content=await page.getTextContent();
+    text += content.items.map(it=>it.str).join(" ") + "\n\n";
+  }
+  return text.trim();
+}
 function renderPreviews(){
   const c=document.getElementById("upload-previews");
   if(!pendingFiles.length){ c.style.display="none"; c.innerHTML=""; return; }
@@ -934,19 +957,19 @@ function listenMsg(btn){ const t=btn.dataset.text; if(window.speechSynthesis.spe
 
 /* ════════ UI ════════ */
 function toggleSidebar(){ const sb=document.getElementById("sidebar");
-  if(window.innerWidth<=760){ sb.classList.toggle("closed"); document.getElementById("scrim").classList.toggle("on",!sb.classList.contains("closed")); }
+  if(window.innerWidth<=1024){ sb.classList.toggle("closed"); document.getElementById("scrim").classList.toggle("on",!sb.classList.contains("closed")); }
   else { sb.style.display = sb.style.display==="none"?"flex":"none"; } }
 function toggleWorkspace(){ const ws=document.getElementById("workspace"); ws.classList.toggle("hidden");
-  if(window.innerWidth<=1080) document.getElementById("scrim").classList.toggle("on",!ws.classList.contains("hidden"));
+  if(window.innerWidth<=1024) document.getElementById("scrim").classList.toggle("on",!ws.classList.contains("hidden"));
   document.getElementById("ws-toggle-btn").classList.toggle("on",!ws.classList.contains("hidden")); }
-function openWorkspaceTo(tab){ document.getElementById("workspace").classList.remove("hidden"); if(window.innerWidth<=1080)document.getElementById("scrim").classList.add("on"); switchTab(tab); }
+function openWorkspaceTo(tab){ document.getElementById("workspace").classList.remove("hidden"); if(window.innerWidth<=1024)document.getElementById("scrim").classList.add("on"); switchTab(tab); }
 function switchTab(t){ ["steps","docs","context"].forEach(x=>{ document.getElementById("pane-"+x).classList.toggle("on",x===t); document.getElementById("tab-"+x).classList.toggle("active",x===t); }); }
 function closeDrawers(){ document.getElementById("sidebar").classList.add("closed"); document.getElementById("workspace").classList.add("hidden"); document.getElementById("scrim").classList.remove("on"); }
 function setDepth(v){ depth=v; savePrefs(); }
 function useStarter(el){ const inp=document.getElementById("msg-input"); inp.value=el.textContent+": "; inp.focus(); autoResize(inp); }
 function autoResize(el){ el.style.height="auto"; el.style.height=Math.min(el.scrollHeight,180)+"px"; }
 function handleKey(e){ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); sendMessage(); } }
-function focusInput(){ setTimeout(()=>{ const el=document.getElementById("msg-input"); if(el&&window.innerWidth>760)el.focus(); },120); }
+function focusInput(){ setTimeout(()=>{ const el=document.getElementById("msg-input"); if(el&&window.innerWidth>1024)el.focus(); },120); }
 function scrollDown(){ const sc=document.getElementById("convo-scroll"); requestAnimationFrame(()=>sc.scrollTo({top:sc.scrollHeight,behavior:"smooth"})); }
 function scrollDownSoft(){ const sc=document.getElementById("convo-scroll"); if(sc.scrollHeight-sc.scrollTop-sc.clientHeight<160) sc.scrollTop=sc.scrollHeight; }
 function toast(msg,dur=2200){ const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),dur); }
@@ -1021,9 +1044,9 @@ function enterApp(){
   if(!sits.length) newSituation(false);
   else openSituation(activeId&&sits.find(s=>s.id===activeId)?activeId:sits[0].id);
   document.getElementById("depth-select").value=depth;
-  if(window.innerWidth>1080) document.getElementById("workspace").classList.remove("hidden");
+  if(window.innerWidth>1024 && matchMedia("(pointer:fine)").matches) document.getElementById("workspace").classList.remove("hidden");
   document.getElementById("ws-toggle-btn").classList.toggle("on",!document.getElementById("workspace").classList.contains("hidden"));
-  if(window.innerWidth<=760) document.getElementById("sidebar").classList.add("closed");
+  if(window.innerWidth<=1024) document.getElementById("sidebar").classList.add("closed");
   focusInput();
 }
 document.addEventListener("click",e=>{ if(!e.target.closest(".ctx-menu")&&!e.target.closest(".sit-menu-btn")) closeSitMenu(); });
