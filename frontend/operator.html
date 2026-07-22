@@ -227,7 +227,7 @@ button{font-family:inherit}
 
       <div class="seats-table-wrap">
         <table class="seats-table">
-          <thead><tr><th>Name</th><th>Key</th><th>Valid</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>Name</th><th>Valid</th><th>Status</th><th></th></tr></thead>
           <tbody id="seats-tbody"></tbody>
         </table>
       </div>
@@ -263,130 +263,96 @@ button{font-family:inherit}
 
 <script>
 /* ════════ CONFIG ════════ */
-const ACCESS_KEYS = [
-  { key:"ESSENCE-2026",  validFrom:"2026-06-01", validTo:"2027-06-01" },
-  { key:"BAAFOUR-2026",  validFrom:"2026-06-01", validTo:"2027-06-01" },
-  { key:"BENJI-2026",    validFrom:"2026-06-01", validTo:"2027-06-01" },
-  { key:"EINSTJII-2026", validFrom:"2026-06-01", validTo:"2027-06-01" },
-];
-const REGISTRY_KEY = "cp_key_registry_v1";   // shared with index.html / partner.html / voice.html
+const SERVER = "https://counterpart-template-server-production.up.railway.app";
 const OP_ACCESS_STORE = "cp_operator_access_v1";
 
-/* ════════ ACCESS ════════ */
-function todayUTC(){ return new Date().toISOString().slice(0,10); }
-function loadRegistry(){ try{ return JSON.parse(localStorage.getItem(REGISTRY_KEY)||"[]"); }catch(e){ return []; } }
-function saveRegistry(list){ try{ localStorage.setItem(REGISTRY_KEY,JSON.stringify(list)); }catch(e){} }
-function validateKey(input){
-  const n=input.trim().toUpperCase(), today=todayUTC();
-  for(const e of ACCESS_KEYS){
-    if(e.key===n){
-      if(today>=e.validFrom && today<=e.validTo) return {valid:true,key:e.key};
-      if(today<e.validFrom) return {valid:false,reason:"This key isn't active yet."};
-      return {valid:false,reason:"This key has expired."};
-    }
-  }
-  for(const e of loadRegistry()){
-    if(e.key===n){
-      if(e.revoked)           return {valid:false,reason:"This key has been revoked."};
-      if(today<e.validFrom)   return {valid:false,reason:"This key isn't active yet."};
-      if(today>e.validTo)     return {valid:false,reason:"This key has expired."};
-      return {valid:true,key:e.key};
-    }
-  }
-  return {valid:false,reason:null};
+/* ════════ SERVER ACCESS ════════ */
+function authHeaders(){ return {"Content-Type":"application/json","x-counterpart-key":currentKey}; }
+async function apiGet(path){ const r=await fetch(`${SERVER}/webapi${path}`,{headers:authHeaders()}); if(!r.ok) throw new Error("request failed"); return r.json(); }
+async function apiPost(path,body){ const r=await fetch(`${SERVER}/webapi${path}`,{method:"POST",headers:authHeaders(),body:JSON.stringify(body||{})}); if(!r.ok) throw new Error("request failed"); return r.json(); }
+async function apiPatch(path,body){ const r=await fetch(`${SERVER}/webapi${path}`,{method:"PATCH",headers:authHeaders(),body:JSON.stringify(body||{})}); if(!r.ok) throw new Error("request failed"); return r.json(); }
+async function apiDelete(path){ const r=await fetch(`${SERVER}/webapi${path}`,{method:"DELETE",headers:authHeaders()}); if(!r.ok) throw new Error("request failed"); return r.json(); }
+async function verifyKeyServer(key){
+  try{ const r=await fetch(`${SERVER}/webapi/auth/verify`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({key})}); const d=await r.json(); return !!d.ok; }
+  catch(e){ return false; }
 }
-function storeAccess(key){ try{ localStorage.setItem(OP_ACCESS_STORE,JSON.stringify({key})); }catch(e){} }
-function checkStoredAccess(){ try{ const s=localStorage.getItem(OP_ACCESS_STORE); if(!s)return false; return validateKey(JSON.parse(s).key).valid; }catch(e){ return false; } }
+function storeAccess(key){ try{ localStorage.setItem(OP_ACCESS_STORE,key); }catch(e){} }
 
 /* ════════ STATE ════════ */
 let currentKey="";
-let registry=[];
-let ctxTimer=null, nameTimer=null;
-
-function org(){ return currentKey; }
-function mySeats(){ return registry.filter(e=>e.org===org()); }
-function orgGet(k,fallback){ try{ const v=localStorage.getItem(`cp_org_${k}_v1__${org()}`); return v===null?fallback:v; }catch(e){ return fallback; } }
-function orgSet(k,v){ try{ localStorage.setItem(`cp_org_${k}_v1__${org()}`,v); }catch(e){} }
-
-/* ════════ SEAT KEY GENERATION ════════ */
-function genSeatKey(){
-  const tag=(org().split("-")[0]||"SEAT").toUpperCase().slice(0,10);
-  let key;
-  do{ key=`${tag}-${Math.random().toString(36).slice(2,8).toUpperCase()}`; }
-  while(ACCESS_KEYS.some(e=>e.key===key)||registry.some(e=>e.key===key));
-  return key;
-}
+let seats=[];
+let orgRate=0;
+let ctxTimer=null, nameTimer=null, rateTimer=null;
 
 /* ════════ SEATS ════════ */
 const STATUS_LABEL={active:"Active",revoked:"Revoked",expired:"Expired",scheduled:"Scheduled"};
 function seatStatus(e){
-  if(e.revoked) return "revoked";
-  const t=todayUTC();
-  if(t<e.validFrom) return "scheduled";
-  if(t>e.validTo) return "expired";
+  if(e.revoked_at) return "revoked";
+  const now=Date.now();
+  if(e.valid_from && now < new Date(e.valid_from).getTime()) return "scheduled";
+  if(e.valid_until && now > new Date(e.valid_until).getTime()) return "expired";
   return "active";
 }
-function issueSeat(){
+function fmtDate(iso){ return iso ? new Date(iso).toISOString().slice(0,10) : "no expiry"; }
+async function loadSeats(){ const d=await apiGet("/keys"); seats=d.keys; renderSeats(); }
+async function issueSeat(){
   const labelInput=document.getElementById("seat-label");
   const label=labelInput.value.trim();
   if(!label){ toast("Give this seat a name first"); labelInput.focus(); return; }
   const days=parseInt(document.getElementById("seat-duration").value,10);
-  const from=todayUTC();
-  const to=new Date(Date.now()+days*86400000).toISOString().slice(0,10);
-  const key=genSeatKey();
-  registry.push({key,validFrom:from,validTo:to,revoked:false,org:org(),label,issuedAt:Date.now()});
-  saveRegistry(registry);
+  const d=await apiPost("/keys",{label,valid_days:days});
   labelInput.value="";
-  renderSeats();
-  infoModal("Seat issued",`${label}\n\nKey: ${key}\nValid: ${from} → ${to}\n\nShare this key with them. They enter it at the Counterpart entry screen — it unlocks their seat immediately, and your standing context above is already waiting for them.`,true);
+  await loadSeats();
+  infoModal("Seat issued",`${label}\n\nKey: ${d.key}\nValid until: ${fmtDate(d.valid_until)}\n\nShare this key with them now — it will not be shown again. They enter it at the Counterpart entry screen; it unlocks their seat immediately, and your standing context above is already waiting for them.`,true);
 }
-function toggleRevoke(key){
-  const e=registry.find(x=>x.key===key); if(!e)return;
-  if(e.revoked){ e.revoked=false; saveRegistry(registry); renderSeats(); toast("Seat reactivated"); }
-  else{ confirmModal("Revoke this seat?",`${e.label} (${e.key}) will lose access immediately.`,"Revoke",()=>{ e.revoked=true; saveRegistry(registry); renderSeats(); toast("Seat revoked"); }); }
+async function toggleRevoke(id,revoked){
+  if(revoked){ await apiPatch(`/keys/${id}`,{revoked:false}); await loadSeats(); toast("Seat reactivated"); }
+  else{
+    const e=seats.find(x=>x.id===id); if(!e)return;
+    confirmModal("Revoke this seat?",`${e.label||"This seat"} will lose access immediately.`,"Revoke",async()=>{
+      await apiPatch(`/keys/${id}`,{revoked:true}); await loadSeats(); toast("Seat revoked");
+    });
+  }
 }
-function extendSeat(key){
-  const e=registry.find(x=>x.key===key); if(!e)return;
-  promptModal("Extend access until…",`${e.label} — currently valid until ${e.validTo}. Enter a new end date (YYYY-MM-DD).`,e.validTo,(val)=>{
+function extendSeat(id){
+  const e=seats.find(x=>x.id===id); if(!e)return;
+  promptModal("Extend access until…",`${e.label||"This seat"} — currently valid until ${fmtDate(e.valid_until)}. Enter a new end date (YYYY-MM-DD).`,e.valid_until?fmtDate(e.valid_until):"",async(val)=>{
     const v=val.trim();
     if(!/^\d{4}-\d{2}-\d{2}$/.test(v)){ toast("Use YYYY-MM-DD"); return; }
-    e.validTo=v; saveRegistry(registry); renderSeats(); toast("Updated");
+    await apiPatch(`/keys/${id}`,{valid_until:v}); await loadSeats(); toast("Updated");
   });
 }
-function deleteSeat(key){
-  const e=registry.find(x=>x.key===key); if(!e)return;
-  confirmModal("Remove this seat?",`${e.label} (${e.key}) will be permanently removed from your seat list.`,"Remove",()=>{
-    registry=registry.filter(x=>x.key!==key); saveRegistry(registry); renderSeats();
+function deleteSeat(id){
+  const e=seats.find(x=>x.id===id); if(!e)return;
+  confirmModal("Remove this seat?",`${e.label||"This seat"} will be permanently removed from your seat list.`,"Remove",async()=>{
+    await apiDelete(`/keys/${id}`); await loadSeats();
   });
 }
-function copySeatKey(key){ navigator.clipboard.writeText(key).then(()=>toast("Key copied")); }
 
 function renderSeats(){
-  const seats=mySeats().sort((a,b)=>(b.issuedAt||0)-(a.issuedAt||0));
+  const sorted=seats.slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
   const tbody=document.getElementById("seats-tbody");
-  document.getElementById("seats-empty").style.display=seats.length?"none":"block";
-  tbody.innerHTML=seats.map(e=>{
+  document.getElementById("seats-empty").style.display=sorted.length?"none":"block";
+  tbody.innerHTML=sorted.map(e=>{
     const st=seatStatus(e);
     return `<tr>
       <td>${esc(e.label||"—")}</td>
-      <td><code class="seat-key">${esc(e.key)}</code></td>
-      <td>${e.validFrom} → ${e.validTo}</td>
+      <td>${fmtDate(e.valid_from)} → ${fmtDate(e.valid_until)}</td>
       <td><span class="status-pill status-${st}">${STATUS_LABEL[st]}</span></td>
       <td class="seat-actions">
-        <button class="doc-mini" onclick="copySeatKey('${e.key}')">Copy</button>
-        <button class="doc-mini" onclick="extendSeat('${e.key}')">Extend</button>
-        <button class="doc-mini" onclick="toggleRevoke('${e.key}')">${e.revoked?"Reactivate":"Revoke"}</button>
-        <button class="doc-mini" onclick="deleteSeat('${e.key}')">Remove</button>
+        <button class="doc-mini" onclick="extendSeat(${e.id})">Extend</button>
+        <button class="doc-mini" onclick="toggleRevoke(${e.id},${!!e.revoked_at})">${e.revoked_at?"Reactivate":"Revoke"}</button>
+        <button class="doc-mini" onclick="deleteSeat(${e.id})">Remove</button>
       </td>
     </tr>`;
   }).join("");
-  renderSummary(seats);
+  renderSummary(sorted);
 }
-function renderSummary(seats){
+function renderSummary(seatList){
   const counts={active:0,revoked:0,expired:0,scheduled:0};
-  seats.forEach(e=>counts[seatStatus(e)]++);
+  seatList.forEach(e=>counts[seatStatus(e)]++);
   document.getElementById("seats-summary").innerHTML=
-    `<div class="summary-pill">Total <b>${seats.length}</b></div>`+
+    `<div class="summary-pill">Total <b>${seatList.length}</b></div>`+
     `<div class="summary-pill">Active <b>${counts.active}</b></div>`+
     (counts.scheduled?`<div class="summary-pill">Scheduled <b>${counts.scheduled}</b></div>`:"")+
     (counts.expired?`<div class="summary-pill">Expired <b>${counts.expired}</b></div>`:"")+
@@ -399,20 +365,21 @@ function renderBilling(activeCount){
   document.getElementById("bill-total").textContent="$"+(activeCount*rate).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
 }
 function onRateInput(){
-  orgSet("rate",document.getElementById("bill-rate").value);
-  renderBilling(mySeats().filter(e=>seatStatus(e)==="active").length);
+  renderBilling(seats.filter(e=>seatStatus(e)==="active").length);
+  clearTimeout(rateTimer);
+  rateTimer=setTimeout(()=>apiPatch("/org",{rate:parseFloat(document.getElementById("bill-rate").value)||0}).catch(()=>{}),500);
 }
 
 /* ════════ ORG NAME / CONTEXT ════════ */
 function onOrgNameInput(){
   clearTimeout(nameTimer);
-  nameTimer=setTimeout(()=>orgSet("name",document.getElementById("org-name").value.trim()),400);
+  nameTimer=setTimeout(()=>apiPatch("/org",{name:document.getElementById("org-name").value.trim()}).catch(()=>{}),400);
 }
 function onOrgCtxInput(){
   clearTimeout(ctxTimer);
   document.getElementById("ctx-save").textContent="saving…";
-  ctxTimer=setTimeout(()=>{
-    orgSet("context",document.getElementById("org-context").value);
+  ctxTimer=setTimeout(async()=>{
+    await apiPatch("/org",{context:document.getElementById("org-context").value}).catch(()=>{});
     document.getElementById("ctx-save").textContent="saved ✓";
     setTimeout(()=>document.getElementById("ctx-save").innerHTML="&nbsp;",1500);
   },500);
@@ -457,32 +424,33 @@ function mkBtn(label,cls,fn){ const b=document.createElement("button"); b.classN
 function onKeyInput(input){ document.getElementById("flame-svg").classList.toggle("alive",input.value.length>0);
   const h=document.getElementById("key-hint"); h.className="key-hint"; h.innerHTML="&nbsp;"; input.classList.remove("wrong"); }
 function onKeyDown(e){ if(e.key==="Enter"){ e.preventDefault(); attemptEntry(); } }
-function attemptEntry(){
+async function attemptEntry(){
   const input=document.getElementById("key-input"), hint=document.getElementById("key-hint");
   const val=input.value.trim(); if(!val)return;
-  const res=validateKey(val);
-  if(res.valid){ storeAccess(res.key); currentKey=res.key; input.style.opacity="0"; document.getElementById("flame-svg").style.opacity="0";
+  hint.className="key-hint"; hint.textContent="checking…";
+  const ok=await verifyKeyServer(val);
+  if(ok){ storeAccess(val); currentKey=val; input.style.opacity="0"; document.getElementById("flame-svg").style.opacity="0";
     setTimeout(enterApp,380); }
-  else{ input.classList.add("wrong"); hint.className="key-hint err"; hint.textContent=res.reason||"That key isn't recognised.";
+  else{ input.classList.add("wrong"); hint.className="key-hint err"; hint.textContent="That key isn't recognised or has expired.";
     setTimeout(()=>{ input.classList.remove("wrong"); input.value=""; hint.className="key-hint"; hint.innerHTML="&nbsp;"; document.getElementById("flame-svg").classList.remove("alive"); input.style.opacity="1"; },1600); }
 }
 
 /* ════════ BOOT ════════ */
-function enterApp(){
+async function enterApp(){
   document.getElementById("key-screen").classList.add("gone");
   document.getElementById("app-shell").classList.add("ready");
   document.getElementById("key-label").textContent=currentKey;
-  registry=loadRegistry();
-  document.getElementById("org-name").value=orgGet("name","");
-  document.getElementById("org-context").value=orgGet("context","");
-  document.getElementById("bill-rate").value=orgGet("rate","9");
-  renderSeats();
+  const orgData=await apiGet("/org");
+  document.getElementById("org-name").value=orgData.org_name||"";
+  document.getElementById("org-context").value=orgData.org_context||"";
+  document.getElementById("bill-rate").value=orgData.org_rate!=null?orgData.org_rate:"9";
+  await loadSeats();
 }
 document.addEventListener("keydown",e=>{ if(e.key==="Escape") closeModal(); });
-(function boot(){
-  try{ const s=localStorage.getItem(OP_ACCESS_STORE); if(s){ const p=JSON.parse(s); if(validateKey(p.key).valid) currentKey=p.key; } }catch(e){}
-  if(checkStoredAccess()){ enterApp(); }
-  else{ document.getElementById("key-screen").classList.remove("gone"); setTimeout(()=>document.getElementById("key-input").focus(),100); }
+(async function boot(){
+  try{ currentKey=localStorage.getItem(OP_ACCESS_STORE)||""; }catch(e){ currentKey=""; }
+  if(currentKey && await verifyKeyServer(currentKey)){ enterApp(); }
+  else{ try{ localStorage.removeItem(OP_ACCESS_STORE); }catch(e){} document.getElementById("key-screen").classList.remove("gone"); setTimeout(()=>document.getElementById("key-input").focus(),100); }
 })();
 </script>
 </body>
