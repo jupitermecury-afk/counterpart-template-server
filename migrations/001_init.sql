@@ -63,6 +63,10 @@ CREATE TABLE IF NOT EXISTS artifacts (
 );
 CREATE INDEX IF NOT EXISTS idx_artifacts_thread ON artifacts(thread_id);
 
+-- Set only when a prepare_email_draft artifact has actually been sent (person-triggered,
+-- never by the model) — lets the app show "sent" persistently and prevents double-sending.
+ALTER TABLE artifacts ADD COLUMN IF NOT EXISTS sent_at TIMESTAMPTZ;
+
 CREATE TABLE IF NOT EXISTS push_tokens (
   id                SERIAL PRIMARY KEY,
   access_key_id     INTEGER NOT NULL REFERENCES access_keys(id) ON DELETE CASCADE,

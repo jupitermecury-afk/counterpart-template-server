@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
 const { pool } = require('../db');
 const { streamCounterpartReply } = require('../lib/claude');
+const { sendRealEmail, isMailerConfigured } = require('../lib/mailer');
 
 const router = express.Router();
 const MODEL = 'claude-sonnet-4-6';
@@ -196,6 +197,43 @@ router.post('/verification/:id', asyncRoute(async (req, res) => {
   );
   if (!result.rows[0]) return res.status(404).json({ error: 'not found' });
   res.json({ item: result.rows[0] });
+}));
+
+// ── Send a prepared email draft for real (always person-triggered — the model only ──
+// ── ever calls prepare_email_draft; it never decides on its own to send anything) ───
+router.post('/artifacts/:id/send-email', asyncRoute(async (req, res) => {
+  if (!isMailerConfigured()) {
+    return res.status(503).json({ error: 'email sending is not configured on this server' });
+  }
+  const artifactId = +req.params.id;
+  const result = await pool.query(
+    `SELECT a.* FROM artifacts a
+     JOIN threads t ON t.id = a.thread_id
+     WHERE a.id = $1 AND t.access_key_id = $2`,
+    [artifactId, req.accessKeyId]
+  );
+  const artifact = result.rows[0];
+  if (!artifact) return res.status(404).json({ error: 'not found' });
+  if (artifact.kind !== 'prepare_email_draft') {
+    return res.status(400).json({ error: 'this artifact is not an email draft' });
+  }
+  if (artifact.sent_at) {
+    return res.status(409).json({ error: 'already sent', sent_at: artifact.sent_at });
+  }
+
+  const { to, subject, body } = artifact.content_json || {};
+  try {
+    await sendRealEmail({ to, subject, body });
+  } catch (err) {
+    console.error('[api] send-email error:', err);
+    return res.status(502).json({ error: err.message || 'failed to send' });
+  }
+
+  const updated = await pool.query(
+    `UPDATE artifacts SET sent_at = now() WHERE id = $1 RETURNING sent_at`,
+    [artifactId]
+  );
+  res.json({ ok: true, sent_at: updated.rows[0].sent_at });
 }));
 
 // ── Push token registration ──────────────────────────────────────────────────
