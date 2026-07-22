@@ -366,6 +366,34 @@ router.post('/threads/:id/messages', asyncRoute(async (req, res) => {
   }
 }));
 
+// ── Quick summary (lightweight, non-tool, non-persisted utility — not a full ──
+// ── counterpart turn, so it deliberately doesn't go through streamCounterpartReply).
+router.post('/threads/:id/summarise', asyncRoute(async (req, res) => {
+  const threadId = +req.params.id;
+  if (!(await assertOwnedThread(threadId, req.accessKeyId))) return res.status(404).json({ error: 'not found' });
+  const turns = await pool.query(`SELECT role, content FROM web_turns WHERE thread_id = $1 ORDER BY id ASC`, [threadId]);
+  if (!turns.rows.length) return res.json({ summary: 'Nothing to summarise yet.' });
+  const convo = turns.rows.map(t => `${t.role}: ${t.content}`).join('\n');
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: 400,
+        system: 'You summarise conversations in plain language.',
+        messages: [{ role: 'user', content: `In three to five sentences, summarise this: what the person is dealing with, what has been decided or drafted, and what the next action is. Be concrete and plain.\n\n${convo}` }],
+      }),
+    });
+    const d = await r.json();
+    const summary = d.content?.filter(b => b.type === 'text').map(b => b.text).join('') || 'Could not generate summary.';
+    res.json({ summary });
+  } catch (err) {
+    console.error('[webapi] summarise error:', err);
+    res.status(502).json({ error: 'could not generate summary' });
+  }
+}));
+
 // ── Verification holds ───────────────────────────────────────────────────────
 router.post('/verification/:id', asyncRoute(async (req, res) => {
   const { status } = req.body || {};

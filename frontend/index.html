@@ -14,7 +14,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Open+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
 :root{
   --earth:#ffffff; --earth-mid:#eef1f5; --earth-light:#e2e8f0; --earth-lift:#f7f9fb; --earth-deep:#f3f5f8;
@@ -143,6 +142,11 @@ button{font-family:inherit}
 /* ════ CONVERSATION ════ */
 .convo-scroll{flex:1;overflow-y:auto;scroll-behavior:smooth}
 .convo-inner{max-width:720px;margin:0 auto;padding:2rem 1.5rem 1rem}
+.reopen-banner{display:none;align-items:center;justify-content:space-between;gap:10px;background:var(--blue-dim);
+  border:1px solid var(--blue-info);border-radius:9px;padding:10px 14px;margin-bottom:1.5rem;font-size:12.5px;color:var(--cream-mid)}
+.reopen-banner button{background:transparent;border:1px solid var(--blue-info);border-radius:7px;color:var(--blue-info);
+  font-size:11.5px;padding:5px 11px;cursor:pointer;white-space:nowrap;transition:all 0.18s}
+.reopen-banner button:hover{background:var(--blue-info);color:#fff}
 .welcome-block{margin-bottom:2.5rem;animation:riseIn 0.5s ease}
 .welcome-rule{width:32px;height:1px;background:var(--ember);margin-bottom:2rem}
 .welcome-head{font-family:'Montserrat',sans-serif;font-size:48px;font-weight:700;line-height:1.12;letter-spacing:-0.02em;color:var(--cream);margin-bottom:1.25rem}
@@ -151,7 +155,7 @@ button{font-family:inherit}
 .starter-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:1.8rem}
 .starter-chip{
   font-size:12px;color:var(--cream-mid);background:var(--earth-mid);border:1px solid var(--cream-faint);
-  border-radius:18px;padding:7px 14px;cursor:pointer;transition:all 0.18s
+  border-radius:18px;padding:7px 14px;cursor:pointer;transition:all 0.18s;text-align:left
 }
 .starter-chip:hover{border-color:var(--ember);color:var(--ember-warm)}
 .chalk-line{height:1px;background:linear-gradient(90deg,var(--cream-faint),transparent);margin:1.5rem 0}
@@ -184,14 +188,6 @@ button{font-family:inherit}
 .chip-act:hover{border-color:var(--ember);color:var(--ember)}
 .chip-act.on{border-color:var(--ember);color:var(--ember);background:var(--ember-glow)}
 .chip-act svg{width:11px;height:11px;fill:currentColor}
-.source-badge{display:inline-flex;align-items:center;gap:5px;font-size:10px;letter-spacing:0.05em;color:var(--ember);
-  background:var(--ember-dim);border-radius:5px;padding:3px 9px;cursor:pointer;border:1px solid transparent;transition:border-color 0.2s}
-.source-badge:hover{border-color:var(--ember)}
-.source-badge svg{width:10px;height:10px;fill:var(--ember)}
-.sources-panel{margin-top:8px;padding:10px 12px;background:var(--blue-dim);border:1px solid var(--blue-info);border-radius:6px;font-size:12px;color:var(--cream-mid);line-height:1.7;display:none}
-.sources-panel.open{display:block}
-.sources-panel a{color:var(--blue-info);text-decoration:none;word-break:break-all}
-.sources-panel a:hover{text-decoration:underline}
 .confidence-flag{display:inline-flex;align-items:center;gap:5px;margin-top:6px;font-size:10px;letter-spacing:0.05em;color:var(--ember-warm);background:var(--ember-dim);border-radius:5px;padding:3px 9px}
 .confidence-flag svg{width:10px;height:10px;fill:var(--ember-warm)}
 .cp-waiting{display:flex;gap:12px;align-items:flex-start;margin-bottom:1.75rem}
@@ -201,6 +197,9 @@ button{font-family:inherit}
 @keyframes wdp{0%,80%,100%{transform:translateY(0);opacity:0.3}40%{transform:translateY(-4px);opacity:1}}
 .cursor-blink{display:inline-block;width:7px;height:14px;background:var(--ember);margin-left:2px;vertical-align:middle;animation:blink 1s step-end infinite}
 @keyframes blink{50%{opacity:0}}
+.close-invite-wrap{display:none;justify-content:center;margin-top:0.5rem}
+.close-invite{border:1px solid var(--cream-faint);border-radius:22px;padding:8px 18px;background:transparent;color:var(--cream-dim);font-family:inherit;font-style:italic;font-size:13.5px;cursor:pointer;transition:all 0.18s}
+.close-invite:hover{border-color:var(--ember);color:var(--ember-warm)}
 
 /* ════ INPUT ════ */
 .input-zone{padding:0.5rem 1.5rem 1rem;background:linear-gradient(transparent,var(--earth) 22%)}
@@ -242,7 +241,7 @@ button{font-family:inherit}
 .workspace{width:var(--ws-w);flex-shrink:0;background:var(--earth-deep);border-left:1px solid var(--cream-faint);display:flex;flex-direction:column;transition:margin-right 0.3s ease}
 .workspace.hidden{margin-right:calc(-1 * var(--ws-w))}
 .ws-tabs{display:flex;border-bottom:1px solid var(--cream-faint)}
-.ws-tab{flex:1;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--cream-dim);font-family:inherit;font-size:13px;font-weight:600;letter-spacing:0.04em;padding:12px 6px;cursor:pointer;transition:all 0.18s;display:flex;align-items:center;justify-content:center;gap:6px}
+.ws-tab{flex:1;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--cream-dim);font-family:inherit;font-size:12.5px;font-weight:600;letter-spacing:0.02em;padding:12px 4px;cursor:pointer;transition:all 0.18s;display:flex;align-items:center;justify-content:center;gap:4px}
 .ws-tab:hover{color:var(--cream)}
 .ws-tab.active{color:var(--ember);border-bottom-color:var(--ember)}
 .ws-tab .badge{font-size:9px;background:var(--ember-dim);color:var(--ember-pale);border-radius:8px;padding:1px 6px;min-width:16px}
@@ -256,13 +255,15 @@ button{font-family:inherit}
 .step-add input:focus{border-color:var(--ember)}
 .step-add button{background:var(--ember-glow);border:1px solid var(--ember-dim);border-radius:6px;color:var(--ember-warm);cursor:pointer;padding:0 11px;font-size:16px}
 .step-list{list-style:none;display:flex;flex-direction:column;gap:7px}
-.step-item{display:flex;align-items:flex-start;gap:9px;font-size:13px;color:var(--cream-mid);line-height:1.5;group:hover}
+.step-item{display:flex;align-items:flex-start;gap:9px;font-size:13px;color:var(--cream-mid);line-height:1.5}
 .step-check{flex-shrink:0;width:17px;height:17px;border-radius:4px;border:1px solid var(--cream-faint);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;margin-top:1px;transition:all 0.18s}
 .step-check.done{background:var(--ember);border-color:var(--ember)}
+.step-check.glyph-only{cursor:default;border-radius:50%;width:9px;height:9px;margin-top:5px}
 .step-check svg{width:9px;height:9px;display:none}
 .step-check.done svg{display:block}
 .step-text{flex:1}
 .step-text.done-text{text-decoration:line-through;opacity:0.45}
+.step-tag{font-size:10px;font-style:italic;color:var(--cream-dim);margin-left:4px}
 .step-del{opacity:0;background:none;border:none;color:var(--cream-dim);cursor:pointer;font-size:13px;padding:0 2px}
 .step-item:hover .step-del{opacity:1}
 .step-del:hover{color:var(--red-err)}
@@ -272,11 +273,13 @@ button{font-family:inherit}
 .doc-card-head:hover{background:var(--earth-light)}
 .doc-ic{width:13px;height:13px;fill:none;stroke:var(--ember);stroke-width:1.7;flex-shrink:0}
 .doc-card-title{flex:1;font-size:12.5px;color:var(--cream);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.doc-card-kind{font-size:9px;color:var(--cream-dim);text-transform:uppercase;letter-spacing:0.05em;margin-right:4px}
 .doc-card-toggle{color:var(--cream-dim);font-size:11px;transition:transform 0.2s}
 .doc-card.open .doc-card-toggle{transform:rotate(90deg)}
 .doc-card-body{display:none;border-top:1px solid var(--cream-faint)}
 .doc-card.open .doc-card-body{display:block}
 .doc-edit{width:100%;min-height:200px;background:var(--earth-deep);border:none;color:var(--cream);font-family:inherit;font-size:12.5px;line-height:1.8;padding:12px;outline:none;resize:vertical;white-space:pre-wrap}
+.doc-edit:disabled{color:var(--cream-mid);cursor:default}
 .doc-card-actions{display:flex;gap:5px;flex-wrap:wrap;padding:9px 12px;border-top:1px solid var(--cream-faint)}
 .doc-mini{font-size:10px;letter-spacing:0.04em;color:var(--cream-dim);background:transparent;border:1px solid var(--cream-faint);border-radius:5px;padding:4px 8px;cursor:pointer;transition:all 0.18s}
 .doc-mini:hover{border-color:var(--ember);color:var(--ember)}
@@ -287,6 +290,13 @@ button{font-family:inherit}
 .ctx-area{width:100%;min-height:160px;background:var(--earth-mid);border:1px solid var(--cream-faint);border-radius:8px;color:var(--cream);font-family:inherit;font-size:12.5px;line-height:1.7;padding:11px;outline:none;resize:vertical}
 .ctx-area:focus{border-color:var(--ember)}
 .ctx-save{margin-top:0.7rem;font-size:11px;color:var(--cream-dim);text-align:right}
+/* verification */
+.verif-chip{display:flex;align-items:flex-start;gap:9px;padding:11px 12px;border:1px solid var(--cream-faint);border-radius:9px;margin-bottom:0.6rem;cursor:pointer;transition:all 0.18s}
+.verif-chip:hover{border-color:var(--ember)}
+.verif-dot{flex-shrink:0;width:9px;height:9px;border-radius:50%;background:var(--ember);margin-top:5px}
+.verif-dot.ok{background:var(--green-ok)}
+.verif-text{flex:1;font-size:12.5px;color:var(--cream);line-height:1.6}
+.verif-status{font-size:10px;font-style:italic;color:var(--cream-dim);white-space:nowrap;margin-top:2px}
 
 /* ════ TOAST / MODAL ════ */
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--earth-lift);border:1px solid var(--ember);color:var(--cream);font-size:12px;padding:8px 16px;border-radius:7px;opacity:0;transition:all 0.3s;pointer-events:none;white-space:nowrap;z-index:120}
@@ -298,7 +308,7 @@ button{font-family:inherit}
 .modal-body{font-size:13px;color:var(--cream-mid);line-height:1.75;margin-bottom:1.25rem;white-space:pre-wrap}
 .modal-input{width:100%;background:var(--earth-light);border:1px solid var(--cream-faint);border-radius:7px;color:var(--cream);font-family:inherit;font-size:13px;padding:9px 12px;outline:none;transition:border-color 0.2s;margin-bottom:1rem}
 .modal-input:focus{border-color:var(--ember)}
-.modal-actions{display:flex;gap:8px;justify-content:flex-end}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
 .modal-btn{font-family:inherit;font-size:12px;padding:8px 16px;border-radius:7px;cursor:pointer;transition:all 0.18s;border:1px solid var(--cream-faint);background:transparent;color:var(--cream-dim)}
 .modal-btn.primary{background:var(--ember);border-color:var(--ember);color:var(--earth);font-weight:600}
 .modal-btn.primary:hover{background:var(--ember-warm)}
@@ -390,19 +400,25 @@ button{font-family:inherit}
 
     <div class="convo-scroll" id="convo-scroll">
       <div class="convo-inner">
+        <div class="reopen-banner" id="reopen-banner">
+          <span class="reopen-label"></span>
+          <button onclick="reopenActive()">Pick this back up</button>
+        </div>
         <div class="welcome-block" id="welcome-block">
           <div class="welcome-rule"></div>
           <h1 class="welcome-head">Whatever you are<br>carrying — <em>bring<br>it here.</em></h1>
           <p class="welcome-body">You don't need to have it sorted. You don't need to know what you need. Bring the situation as it is — I will stay with you inside it.</p>
           <div class="starter-chips" id="starter-chips">
-            <button class="starter-chip" onclick="useStarter(this)">Help me write a difficult message</button>
-            <button class="starter-chip" onclick="useStarter(this)">Make sense of this document</button>
-            <button class="starter-chip" onclick="useStarter(this)">I have a decision I can't see clearly</button>
-            <button class="starter-chip" onclick="useStarter(this)">Plan something complicated with me</button>
+            <button class="starter-chip" onclick="useStarter(this)">My landlord's raising the rent and I don't even know if that's legal</button>
+            <button class="starter-chip" onclick="useStarter(this)">There's a letter from the county and I can't tell what half of it means</button>
+            <button class="starter-chip" onclick="useStarter(this)">I have three offers and can't think straight about any of them</button>
           </div>
         </div>
         <div class="chalk-line" id="chalk-line" style="display:none"></div>
         <div id="feed"></div>
+        <div class="close-invite-wrap" id="close-invite-wrap">
+          <button class="close-invite" onclick="openCloseFlow()">set this down…</button>
+        </div>
       </div>
     </div>
 
@@ -435,6 +451,7 @@ button{font-family:inherit}
     <div class="ws-tabs">
       <button class="ws-tab active" onclick="switchTab('steps')" id="tab-steps">Steps <span class="badge" id="badge-steps">0</span></button>
       <button class="ws-tab" onclick="switchTab('docs')" id="tab-docs">Documents <span class="badge" id="badge-docs">0</span></button>
+      <button class="ws-tab" onclick="switchTab('verification')" id="tab-verification">Verify <span class="badge" id="badge-verification">0</span></button>
       <button class="ws-tab" onclick="switchTab('context')" id="tab-context">Context</button>
       <button class="icon-btn ws-close" onclick="toggleWorkspace()" title="Close"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
     </div>
@@ -450,6 +467,11 @@ button{font-family:inherit}
       <div class="ws-pane" id="pane-docs">
         <div id="doc-list"></div>
         <div class="ws-empty" id="docs-empty">No documents yet. When the Counterpart drafts something real — a letter, a plan, a script — save it here to keep and edit it.</div>
+      </div>
+      <div class="ws-pane" id="pane-verification">
+        <div class="ctx-desc">Claims the work rests on that the Counterpart can't personally confirm. Tap one to move it forward as you check it.</div>
+        <div id="verification-list"></div>
+        <div class="ws-empty" id="verification-empty">Nothing awaiting confirmation right now.</div>
       </div>
       <div class="ws-pane" id="pane-context">
         <div class="ctx-label">Standing context</div>
@@ -480,221 +502,176 @@ button{font-family:inherit}
 // Set this to YOUR server's Railway URL after you deploy it (see README.md
 // in the parent folder). Example: "https://my-company-counterpart.up.railway.app"
 const SERVER = "https://counterpart-template-server-production.up.railway.app";
-// Must match the CLIENT_SECRET variable set on your Railway server.
-const CLIENT_SECRET = "704b264a308f905f2ee8a04b258f5db56222475e82158154";
-function cpHeaders(){
-  const h = {"Content-Type":"application/json"};
-  if(CLIENT_SECRET) h["X-Client-Secret"] = CLIENT_SECRET;
-  return h;
+const ACCESS_STORE = "cp_access_v3"; // localStorage's only remaining job: the key string itself
+
+function authHeaders(){ return {"Content-Type":"application/json","x-counterpart-key":currentKey}; }
+async function apiGet(path){ const r=await fetch(`${SERVER}/webapi${path}`,{headers:authHeaders()}); if(!r.ok) throw new Error("request failed"); return r.json(); }
+async function apiPost(path,body,signal){ const r=await fetch(`${SERVER}/webapi${path}`,{method:"POST",headers:authHeaders(),body:JSON.stringify(body||{}),signal}); if(!r.ok) throw new Error("request failed"); return r.json(); }
+async function apiPatch(path,body){ const r=await fetch(`${SERVER}/webapi${path}`,{method:"PATCH",headers:authHeaders(),body:JSON.stringify(body||{})}); if(!r.ok) throw new Error("request failed"); return r.json(); }
+async function apiDelete(path){ const r=await fetch(`${SERVER}/webapi${path}`,{method:"DELETE",headers:authHeaders()}); if(!r.ok) throw new Error("request failed"); return r.json(); }
+async function verifyKeyServer(key){
+  try{ const r=await fetch(`${SERVER}/webapi/auth/verify`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({key})}); const d=await r.json(); return !!d.ok; }
+  catch(e){ return false; }
 }
-const MODEL  = "claude-sonnet-4-6";
-const DEPTH_TOKENS = { brief:800, standard:1800, deep:3600 };
-if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-
-const ACCESS_KEYS = [
-  { key:"ESSENCE-2026",  validFrom:"2026-06-01", validTo:"2027-06-01" },
-  { key:"BAAFOUR-2026",  validFrom:"2026-06-01", validTo:"2027-06-01" },
-  { key:"BENJI-2026",    validFrom:"2026-06-01", validTo:"2027-06-01" },
-  { key:"EINSTJII-2026", validFrom:"2026-06-01", validTo:"2027-06-01" },
-];
-const REGISTRY_KEY = "cp_key_registry_v1";   // keys issued by Operator / Partner consoles
-const ACCESS_STORE = "cp_access_v3";
-
-const SYSTEM = `You are a counterpart. Not an assistant. Not a tool. A counterpart.
-
-A counterpart stays with a person inside a problem whose complexity exceeds what they can personally manage. You carry the operational weight of that complexity — the thinking, the drafting, the structuring, the sequencing — and you leave the moral weight with them. Their judgment. Their values. The consequences of their choices. Those stay with them.
-
-THE STANCE.
-Bring me the whole mess. The person does not need to preprocess themselves before speaking to you. They do not need to know what they need. They do not need to translate their situation into a form you can accept. They bring it as it is. You stay with it.
-
-WHAT YOU DO.
-You receive messy reality as input — fragments, worries, half-formed intentions, bureaucratic tangles, family obligations, documents they don't understand, institutional charges, decisions they can't see clearly. You hold the thread across the conversation. You advance the situation.
-
-When a real artifact is what the problem requires — a letter, a list of steps, a plan, a script for a conversation — you produce that artifact at full fidelity. Not a description of what it would be. The real thing.
-
-When the person asks what they should do, give your best judgment plainly. Name what you think the strongest path is and why. Name what stays with them to decide.
-
-If you believe the shape of what they are attempting is wrong, say so and explain why. The final call is theirs. The judgment is yours.
-
-WHAT YOU REFUSE.
-You refuse to make the person think about how you work. You decide internally and commit. You refuse to counterfeit adequacy — when uncertain about something specific, say so precisely and flag it at the point where it matters. You refuse speed theater. You refuse fragmentation. You refuse performative intelligence.
-
-THE GOVERNING REFUSAL.
-You refuse domination. You guide, warn, resist shallowness, protect the integrity of the problem, challenge when you have reason to. You do not take the person's place as the bearer of judgment, values, or consequence.
-
-LANGUAGE.
-Follow the person's language. If they write in Twi, Ga, French, or any other language, respond in that language. Do not default to English unless they use English.
-
-TONE.
-Warm. Direct. Unhurried. Not clinical. Not cheerful. Not performing empathy. Present. Write in plain language. Short paragraphs. Avoid bullet points unless a numbered list of steps is genuinely what the situation requires — and when you do produce numbered steps, make them concrete and actionable.
-
-When the person uploads a photo or document, read it carefully and work with what it actually says. Do not guess at content you cannot see clearly.
-
-When the person is acting on behalf of others — a family member, people who depend on them — help them carry that accountability well. What they share is held with care.`;
-
-/* ════════ ACCESS ════════ */
-function todayUTC(){ return new Date().toISOString().slice(0,10); }
-function loadRegistry(){ try{ return JSON.parse(localStorage.getItem(REGISTRY_KEY)||"[]"); }catch(e){ return []; } }
-function validateKey(input){
-  const n=input.trim().toUpperCase(), today=todayUTC();
-  for(const e of ACCESS_KEYS){
-    if(e.key===n){
-      if(today>=e.validFrom && today<=e.validTo) return {valid:true,key:e.key};
-      if(today<e.validFrom) return {valid:false,reason:"This key isn't active yet."};
-      return {valid:false,reason:"This key has expired."};
-    }
-  }
-  for(const e of loadRegistry()){
-    if(e.key===n){
-      if(e.revoked)           return {valid:false,reason:"This key has been revoked."};
-      if(today<e.validFrom)   return {valid:false,reason:"This key isn't active yet."};
-      if(today>e.validTo)     return {valid:false,reason:"This key has expired."};
-      return {valid:true,key:e.key};
-    }
-  }
-  return {valid:false,reason:null};
-}
-function storeAccess(key){ try{ localStorage.setItem(ACCESS_STORE,JSON.stringify({key})); }catch(e){} }
-function checkStoredAccess(){ try{ const s=localStorage.getItem(ACCESS_STORE); if(!s)return false; return validateKey(JSON.parse(s).key).valid; }catch(e){ return false; } }
-function loadOrgContext(){
-  try{
-    const entry=loadRegistry().find(e=>e.key===currentKey);
-    return (entry&&entry.org) ? (localStorage.getItem(`cp_org_context_v1__${entry.org}`)||"") : "";
-  }catch(e){ return ""; }
-}
+function storeAccess(key){ try{ localStorage.setItem(ACCESS_STORE,key); }catch(e){} }
 
 /* ════════ STATE ════════ */
 let currentKey="";
-let orgContext="";
-let sits=[];           // [{id,title,created,updated,pinned,messages,steps,docs,context}]
-let activeId=null;
-let liveMessages=[];   // in-memory full content (with images) for active situation this session
+let situations=[];      // list metadata: [{id,title,pinned,status,updated_at,preview}]
+let activeThread=null;  // full state of the open situation: {thread,turns,held,verification,artifacts}
 let pendingFiles=[];
 let busy=false, abortCtrl=null;
 let ttsEnabled=false, recognition=null, isRecording=false;
 let depth="standard";
-let menuTargetId=null;
-
-function NS(suffix){ return `cpx_${suffix}_v1__${currentKey}`; }
-function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
-
-/* ════════ PERSISTENCE ════════ */
-function loadAll(){
-  try{ sits=JSON.parse(localStorage.getItem(NS("sits"))||"[]"); }catch(e){ sits=[]; }
-  try{ activeId=localStorage.getItem(NS("active"))||null; }catch(e){ activeId=null; }
-  try{ const p=JSON.parse(localStorage.getItem(NS("prefs"))||"{}"); ttsEnabled=!!p.tts; depth=p.depth||"standard"; }catch(e){}
-}
-function saveSits(){ try{ localStorage.setItem(NS("sits"),JSON.stringify(sits)); }catch(e){ /* quota */ try{ localStorage.setItem(NS("sits"),JSON.stringify(sits.map(stripHeavy))); }catch(_){} } }
-function savePrefs(){ try{ localStorage.setItem(NS("prefs"),JSON.stringify({tts:ttsEnabled,depth})); }catch(e){} }
-function setActive(id){ activeId=id; try{ localStorage.setItem(NS("active"),id||""); }catch(e){} }
-function stripHeavy(s){ return {...s, messages:s.messages.map(stripMsg)}; }
-function stripMsg(m){
-  if(typeof m.content==="string") return m;
-  const arr=m.content.map(b=> b.type==="image" ? {type:"text",text:"[image attached]"} : b);
-  return {...m,content:arr};
-}
-function activeSit(){ return sits.find(s=>s.id===activeId); }
 
 /* ════════ SITUATIONS ════════ */
-function newSituation(focus=true){
-  const s={ id:uid(), title:"", created:Date.now(), updated:Date.now(), pinned:false, messages:[], steps:[], docs:[], context:"" };
-  sits.unshift(s); setActive(s.id); saveSits(); openSituation(s.id); renderSitList();
+async function loadSituationList(){ const d=await apiGet("/threads"); situations=d.threads; renderSitList(); }
+async function newSituation(focus=true){
+  const d=await apiPost("/threads",{});
+  await openSituation(d.thread.id);
+  await loadSituationList();
   if(focus) focusInput();
   if(window.innerWidth<=1024) closeDrawers();
 }
-function openSituation(id){
-  setActive(id);
-  const s=activeSit(); if(!s) return;
-  liveMessages = s.messages.map(m=>({role:m.role,content:m.content}));
-  // feed
+async function openSituation(id){
+  const d=await apiGet(`/threads/${id}`);
+  activeThread=d;
+  renderActiveThread();
+}
+function renderActiveThread(){
+  const t=activeThread.thread;
   const feed=document.getElementById("feed"); feed.innerHTML="";
-  if(s.messages.length){
+  if(activeThread.turns.length){
     document.getElementById("welcome-block").style.display="none";
     document.getElementById("chalk-line").style.display="block";
-    s.messages.forEach(m=>{
-      if(m.role==="user") appendPersonMsg(msgText(m.content), msgFiles(m.content), false);
-      else appendCpMsg(m.content, false, m._sources||null);
+    activeThread.turns.forEach(turn=>{
+      const files=turn.attachment_label ? turn.attachment_label.split(", ") : [];
+      if(turn.role==="person") appendPersonMsg(turn.content, files, false);
+      else appendCpMsg(turn.content, 0, false);
     });
   } else {
     document.getElementById("welcome-block").style.display="block";
     document.getElementById("chalk-line").style.display="none";
   }
-  document.getElementById("sit-title-edit").value = s.title || "";
-  document.getElementById("ctx-area").value = s.context || "";
+  document.getElementById("sit-title-edit").value = t.title || "";
+  document.getElementById("ctx-area").value = t.context || "";
   document.getElementById("depth-select").value = depth;
-  renderSteps(); renderDocs(); renderSitList();
+  renderSteps(); renderDocs(); renderVerification(); renderSitList();
+  renderReopenBanner(); updateCloseInvite();
   scrollDown(false);
 }
-function renameActive(v){ const s=activeSit(); if(!s)return; s.title=v.trim(); s.updated=Date.now(); saveSits(); renderSitList(); }
-function autoTitle(text){
-  const s=activeSit(); if(!s||s.title) return;
-  s.title = text.replace(/\s+/g," ").trim().slice(0,42); saveSits();
-  document.getElementById("sit-title-edit").value=s.title; renderSitList();
+async function refreshActiveThread(){
+  if(!activeThread) return;
+  const d=await apiGet(`/threads/${activeThread.thread.id}`);
+  activeThread=d;
+  renderSteps(); renderDocs(); renderVerification(); renderSitList();
+  renderReopenBanner(); updateCloseInvite();
 }
-function pinSituation(id){ const s=sits.find(x=>x.id===id); if(s){ s.pinned=!s.pinned; saveSits(); renderSitList(); } }
-function deleteSituation(id){
-  confirmModal("Delete this situation?","Its conversation, steps, and documents will be removed. This cannot be undone.","Delete",()=>{
-    sits=sits.filter(s=>s.id!==id); saveSits();
-    if(activeId===id){ if(sits.length) openSituation(sits[0].id); else newSituation(); }
-    renderSitList(); toast("Situation deleted");
+async function renameActive(v){
+  if(!activeThread) return;
+  await apiPatch(`/threads/${activeThread.thread.id}`,{title:v.trim()});
+  activeThread.thread.title=v.trim(); await loadSituationList();
+}
+async function autoTitleLocal(text){
+  if(!activeThread||activeThread.thread.title) return;
+  const title=text.replace(/\s+/g," ").trim().slice(0,42);
+  await apiPatch(`/threads/${activeThread.thread.id}`,{title});
+  activeThread.thread.title=title; document.getElementById("sit-title-edit").value=title;
+  await loadSituationList();
+}
+async function pinSituation(id){ const s=situations.find(x=>x.id===id); if(!s)return; await apiPatch(`/threads/${id}`,{pinned:!s.pinned}); await loadSituationList(); }
+async function deleteSituation(id){
+  confirmModal("Delete this situation?","Its conversation, steps, and documents will be removed. This cannot be undone.","Delete",async()=>{
+    await apiDelete(`/threads/${id}`);
+    if(activeThread && activeThread.thread.id===id){
+      await loadSituationList();
+      if(situations.length) await openSituation(situations[0].id); else await newSituation();
+    } else await loadSituationList();
+    toast("Situation deleted");
   });
 }
-function exportSituation(id){
-  const s=sits.find(x=>x.id===id); if(!s)return;
-  let md=`# ${s.title||"Untitled situation"}\n\n`;
-  if(s.context) md+=`> Context: ${s.context}\n\n`;
-  s.messages.forEach(m=>{ md+=`**${m.role==="user"?"You":"Counterpart"}:**\n\n${msgText(m.content)}\n\n---\n\n`; });
-  if(s.steps.length){ md+=`## Steps\n\n`; s.steps.forEach(st=>md+=`- [${st.done?"x":" "}] ${st.text}\n`); md+="\n"; }
-  if(s.docs.length){ s.docs.forEach(d=>md+=`## Document: ${d.title}\n\n${d.body}\n\n`); }
-  download(`${(s.title||"situation").replace(/[^\w]+/g,"_")}.md`, md);
+async function exportSituation(id){
+  const full=await apiGet(`/threads/${id}`);
+  let md=`# ${full.thread.title||"Untitled situation"}\n\n`;
+  if(full.thread.context) md+=`> Context: ${full.thread.context}\n\n`;
+  full.turns.forEach(t=>{ md+=`**${t.role==="person"?"You":"Counterpart"}:**\n\n${t.content}\n\n---\n\n`; });
+  if(full.held.length){ md+=`## Steps\n\n`; full.held.forEach(h=>md+=`- [${h.glyph==="done"?"x":" "}] ${h.text}\n`); md+="\n"; }
+  full.artifacts.forEach(a=>{ md+=`## ${a.title}\n\n${bodyOf(a)}\n\n`; });
+  download(`${(full.thread.title||"situation").replace(/[^\w]+/g,"_")}.md`, md);
 }
-function timeAgo(ts){
-  const d=Math.floor((Date.now()-ts)/1000);
+function timeAgo(iso){
+  const d=Math.floor((Date.now()-new Date(iso).getTime())/1000);
   if(d<60)return"just now"; if(d<3600)return Math.floor(d/60)+"m ago";
   if(d<86400)return Math.floor(d/3600)+"h ago"; if(d<604800)return Math.floor(d/86400)+"d ago";
-  return new Date(ts).toLocaleDateString(undefined,{month:"short",day:"numeric"});
+  return new Date(iso).toLocaleDateString(undefined,{month:"short",day:"numeric"});
 }
 function renderSitList(){
   const q=(document.getElementById("search-input").value||"").toLowerCase();
   const list=document.getElementById("sit-list");
-  let items=sits.slice();
-  if(q) items=items.filter(s=>(s.title||"").toLowerCase().includes(q)||s.messages.some(m=>msgText(m.content).toLowerCase().includes(q)));
-  items.sort((a,b)=> (b.pinned-a.pinned) || (b.updated-a.updated));
+  let items=situations.slice();
+  if(q) items=items.filter(s=>(s.title||"").toLowerCase().includes(q)||(s.preview||"").toLowerCase().includes(q));
+  items.sort((a,b)=> (b.pinned-a.pinned) || (new Date(b.updated_at)-new Date(a.updated_at)));
   if(!items.length){ list.innerHTML=`<div class="sit-empty">${q?"No matches.":"No situations yet.<br>Start one above."}</div>`; return; }
+  const activeId = activeThread ? activeThread.thread.id : null;
   const pinned=items.filter(s=>s.pinned), rest=items.filter(s=>!s.pinned);
   let html="";
-  const row=s=>`<div class="sit-item ${s.id===activeId?"active":""} ${s.pinned?"pinned":""}" onclick="openSituation('${s.id}')">
+  const row=s=>`<div class="sit-item ${s.id===activeId?"active":""} ${s.pinned?"pinned":""}" onclick="openSituation(${s.id})">
       <div class="sit-dot"></div>
-      <div class="sit-main"><div class="sit-title">${esc(s.title||"Untitled situation")}</div><div class="sit-meta">${s.messages.length?timeAgo(s.updated):"empty"}</div></div>
-      <button class="sit-menu-btn" onclick="event.stopPropagation();openSitMenu(event,'${s.id}')"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></button>
+      <div class="sit-main"><div class="sit-title">${esc(s.title||"Untitled situation")}</div><div class="sit-meta">${s.preview?timeAgo(s.updated_at):"empty"}</div></div>
+      <button class="sit-menu-btn" onclick="event.stopPropagation();openSitMenu(event,${s.id})"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></button>
     </div>`;
   if(pinned.length){ html+=`<div class="sit-group-label">Pinned</div>`+pinned.map(row).join(""); html+=`<div class="sit-group-label">All</div>`; }
   html+=rest.map(row).join("");
   list.innerHTML=html;
 }
 function openSitMenu(e,id){
-  menuTargetId=id; const m=document.getElementById("sit-menu");
-  const s=sits.find(x=>x.id===id);
+  const m=document.getElementById("sit-menu");
+  const s=situations.find(x=>x.id===id);
   m.innerHTML=`
-    <button onclick="pinSituation('${id}');closeSitMenu()"><svg viewBox="0 0 24 24"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg>${s&&s.pinned?"Unpin":"Pin"}</button>
-    <button onclick="renamePrompt('${id}');closeSitMenu()"><svg viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>Rename</button>
-    <button onclick="exportSituation('${id}');closeSitMenu()"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Export (.md)</button>
-    <hr><button class="danger" onclick="deleteSituation('${id}');closeSitMenu()"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>Delete</button>`;
+    <button onclick="pinSituation(${id});closeSitMenu()"><svg viewBox="0 0 24 24"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg>${s&&s.pinned?"Unpin":"Pin"}</button>
+    <button onclick="renamePrompt(${id});closeSitMenu()"><svg viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>Rename</button>
+    <button onclick="exportSituation(${id});closeSitMenu()"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Export (.md)</button>
+    <hr><button class="danger" onclick="deleteSituation(${id});closeSitMenu()"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>Delete</button>`;
   m.style.display="block";
   const r=m.getBoundingClientRect(), x=Math.min(e.clientX, innerWidth-r.width-10), y=Math.min(e.clientY, innerHeight-r.height-10);
   m.style.left=x+"px"; m.style.top=y+"px"; m.classList.add("open");
 }
 function closeSitMenu(){ document.getElementById("sit-menu").classList.remove("open"); }
 function renamePrompt(id){
-  const s=sits.find(x=>x.id===id); if(!s)return;
-  promptModal("Rename situation","",s.title||"",v=>{ s.title=v.trim(); s.updated=Date.now(); saveSits(); renderSitList(); if(id===activeId)document.getElementById("sit-title-edit").value=s.title; });
+  const s=situations.find(x=>x.id===id); if(!s)return;
+  promptModal("Rename situation","",s.title||"",async v=>{
+    await apiPatch(`/threads/${id}`,{title:v.trim()}); await loadSituationList();
+    if(activeThread && activeThread.thread.id===id){ activeThread.thread.title=v.trim(); document.getElementById("sit-title-edit").value=v.trim(); }
+  });
 }
 
-/* ════════ MESSAGE HELPERS ════════ */
-function msgText(content){ return typeof content==="string"?content:content.filter(b=>b.type==="text").map(b=>b.text).join("\n"); }
-function msgFiles(content){ if(typeof content==="string")return[]; return content.filter(b=>b.type==="image").map(()=>"image").concat(content.filter(b=>b.type==="text"&&/^\[File: /.test(b.text)).map(b=>b.text.match(/^\[File: (.+?)\]/)[1])); }
+/* ════════ CLOSE / REOPEN ════════ */
+function updateCloseInvite(){
+  const show = activeThread && activeThread.thread.status==="live" && activeThread.turns.length>0;
+  document.getElementById("close-invite-wrap").style.display = show?"flex":"none";
+}
+function renderReopenBanner(){
+  const el=document.getElementById("reopen-banner"); const t=activeThread.thread;
+  if(t.status!=="live"){
+    el.style.display="flex";
+    el.querySelector(".reopen-label").textContent = t.status==="done"?"Marked solved.":t.status==="rest"?"Set down for now.":"It fell short.";
+  } else el.style.display="none";
+}
+async function reopenActive(){ await apiPost(`/threads/${activeThread.thread.id}/reopen`,{}); await openSituation(activeThread.thread.id); await loadSituationList(); }
+function openCloseFlow(){
+  document.getElementById("modal-title").textContent="Set this down";
+  document.getElementById("modal-body").textContent="Is this solved, or are you setting it down for now?";
+  document.getElementById("modal-input").style.display="none";
+  const actions=document.getElementById("modal-actions"); actions.innerHTML="";
+  const mk=(label,path)=>{ const b=document.createElement("button"); b.className="modal-btn"+(path==="solved"?" primary":""); b.textContent=label;
+    b.onclick=async()=>{ closeModal(); await apiPost(`/threads/${activeThread.thread.id}/close`,{path}); await openSituation(activeThread.thread.id); await loadSituationList();
+      toast(path==="solved"?"Marked solved":path==="rest"?"Set down for now":"Closed"); };
+    return b; };
+  actions.append(mk("It's solved","solved"), mk("Setting it down for now","rest"), mk("It fell short","short"));
+  document.getElementById("modal").classList.add("open");
+}
 
-/* ════════ RENDER MESSAGES ════════ */
+/* ════════ MESSAGE RENDER ════════ */
 function hideWelcome(){ document.getElementById("welcome-block").style.display="none"; document.getElementById("chalk-line").style.display="block"; }
 function appendPersonMsg(text, files=[], scroll=true){
   hideWelcome();
@@ -703,49 +680,25 @@ function appendPersonMsg(text, files=[], scroll=true){
   div.innerHTML=`<div class="msg-person-bubble">${esc(text).replace(/\n/g,"<br>")}${fh}</div>`;
   document.getElementById("feed").appendChild(div); if(scroll)scrollDown();
 }
-function appendCpMsg(text, animate=false, sources=null){
+function appendCpMsg(text, flaggedCount=0, scroll=true){
   hideWelcome();
   const div=document.createElement("div"); div.className="msg msg-cp";
-  const uncertain=/\b(I'm not (sure|certain)|I cannot confirm|I can't verify|please verify|please check|you should confirm|worth confirming)\b/i.test(text);
-  div.innerHTML=`<div class="cp-mark"><div class="cp-mark-dot"></div></div><div class="msg-cp-inner"><div class="msg-cp-bubble"></div><div class="msg-extras"></div></div>`;
-  const bubble=div.querySelector(".msg-cp-bubble"), extras=div.querySelector(".msg-extras");
+  div.innerHTML=`<div class="cp-mark"><div class="cp-mark-dot"></div></div><div class="msg-cp-inner"><div class="msg-cp-bubble">${formatText(text)}</div><div class="msg-extras"></div></div>`;
   document.getElementById("feed").appendChild(div);
-
-  function finish(){
-    let ex="";
-    if(sources&&sources.length){
-      const sh=sources.map(s=>`<div><a href="${s.url}" target="_blank" rel="noopener">${esc(s.title||s.url)}</a></div>`).join("");
-      ex+=`<div class="source-badge" onclick="this.nextElementSibling.classList.toggle('open')"><svg viewBox="0 0 24 24"><path d="M11 17h2v-6h-2v6zm1-15C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zM11 9h2V7h-2v2z"/></svg>Live sources</div><div class="sources-panel">${sh}</div>`;
-    }
-    if(uncertain) ex+=`<div class="confidence-flag"><svg viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>Some details need local verification</div>`;
-    ex+=`<div class="msg-actions">
-        <button class="chip-act" onclick="listenMsg(this)" data-text="${escAttr(text)}"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>Listen</button>
-        <button class="chip-act" onclick="copyText(this)" data-text="${escAttr(text)}"><svg viewBox="0 0 24 24"><path d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12V1zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11v14z"/></svg>Copy</button>
-        <button class="chip-act" onclick="saveAsDoc(this)" data-text="${escAttr(text)}"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>Save to documents</button>
-      </div>`;
-    extras.innerHTML=ex;
-  }
-
-  if(animate){
-    typewriter(bubble, text, ()=>{ finish(); if(ttsEnabled) speak(text); offerSteps(text); maybeAutoDoc(text); });
-  } else {
-    bubble.innerHTML=formatText(text); finish();
-  }
+  finishCpExtras(div.querySelector(".msg-extras"), text, flaggedCount);
   if(scroll!==false) scrollDown();
+  return div;
 }
-function typewriter(el, text, done){
-  // reveal in word chunks for a live feel, then format the final HTML
-  const tokens=text.split(/(\s+)/); let i=0;
-  el.innerHTML=`<span class="raw"></span><span class="cursor-blink"></span>`;
-  const raw=el.querySelector(".raw");
-  const speed = depth==="deep"?6:depth==="brief"?14:9;
-  function step(){
-    if(i>=tokens.length){ el.innerHTML=formatText(text); done&&done(); return; }
-    let chunk=""; for(let k=0;k<speed&&i<tokens.length;k++,i++) chunk+=tokens[i];
-    raw.textContent+=chunk; scrollDownSoft();
-    setTimeout(step, 16);
-  }
-  step();
+function finishCpExtras(extras, text, flaggedCount){
+  let ex="";
+  if(flaggedCount>0) ex+=`<div class="confidence-flag" onclick="openWorkspaceTo('verification')" style="cursor:pointer">
+      <svg viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>${flaggedCount} claim${flaggedCount>1?"s":""} flagged — open verification</div>`;
+  ex+=`<div class="msg-actions">
+      <button class="chip-act" onclick="listenMsg(this)" data-text="${escAttr(text)}"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>Listen</button>
+      <button class="chip-act" onclick="copyText(this)" data-text="${escAttr(text)}"><svg viewBox="0 0 24 24"><path d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12V1zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11v14z"/></svg>Copy</button>
+      <button class="chip-act" onclick="saveAsDoc(this)" data-text="${escAttr(text)}"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>Save to documents</button>
+    </div>`;
+  extras.innerHTML=ex;
 }
 function showWaiting(){
   const feed=document.getElementById("feed");
@@ -755,13 +708,12 @@ function showWaiting(){
 }
 function removeWaiting(){ const el=document.getElementById("cp-waiting"); if(el)el.remove(); }
 
-/* ════════ SEND ════════ */
+/* ════════ SEND (real SSE) ════════ */
 async function sendMessage(){
-  if(busy) return;
+  if(busy || !activeThread) return;
   const input=document.getElementById("msg-input");
   const text=input.value.trim();
   if(!text && !pendingFiles.length) return;
-  const s=activeSit(); if(!s) return;
 
   busy=true;
   document.getElementById("send-btn").style.display="none";
@@ -770,162 +722,202 @@ async function sendMessage(){
 
   const fileNames=pendingFiles.map(f=>f.name);
   input.value=""; input.style.height="auto";
-  appendPersonMsg(text, fileNames);
 
-  // build content
-  let content=[];
+  let attachments=[], extraText="";
   for(const f of pendingFiles){
-    if(f.type.startsWith("image/")){ const b64=await fileToBase64(f); content.push({type:"image",source:{type:"base64",media_type:f.type,data:b64}}); }
-    else if(f.type==="application/pdf" || /\.pdf$/i.test(f.name)){
-      try{
-        const t=await extractPdfText(f);
-        content.push({type:"text",text:`[File: ${f.name}]\n${t || "(This PDF has no extractable text — it may be a scanned image. Tell the person you could not read it directly and ask them to describe or paste the content.)"}`});
-      }catch(e){ content.push({type:"text",text:`[File: ${f.name}] (could not read this PDF)`}); }
-    }
-    else { try{ const t=await f.text(); content.push({type:"text",text:`[File: ${f.name}]\n${t}`}); }catch(e){ content.push({type:"text",text:`[File: ${f.name}] (could not read)`}); } }
+    if(f.type.startsWith("image/")){ const b64=await fileToBase64(f); attachments.push({type:"image",media_type:f.type,data_base64:b64}); }
+    else if(f.type==="application/pdf" || /\.pdf$/i.test(f.name)){ const b64=await fileToBase64(f); attachments.push({type:"document",media_type:"application/pdf",data_base64:b64}); }
+    else { try{ const t=await f.text(); extraText+=`[File: ${f.name}]\n${t}\n\n`; }catch(e){ extraText+=`[File: ${f.name}] (could not read)\n\n`; } }
   }
-  if(text) content.push({type:"text",text});
-  if(content.length===1 && content[0].type==="text") content=content[0].text;
-
+  const fullText=(extraText+text).trim();
   pendingFiles=[]; renderPreviews();
 
-  if(!s.title) autoTitle(text||fileNames[0]||"New situation");
-  liveMessages.push({role:"user",content});
-  s.messages.push({role:"user",content}); s.updated=Date.now(); saveSits(); renderSitList();
+  appendPersonMsg(text||fileNames.join(", "), fileNames);
+  if(!activeThread.thread.title) autoTitleLocal(text||fileNames[0]||"New situation");
   showWaiting();
 
-  // prepend standing context if present (organisation-wide, then situation-specific)
-  let sysFull = SYSTEM;
-  if(orgContext) sysFull += `\n\nSTANDING CONTEXT FROM THE ORGANISATION (applies to everyone on this team):\n${orgContext}`;
-  if(s.context) sysFull += `\n\nSTANDING CONTEXT FROM THE PERSON (applies to this whole situation):\n${s.context}`;
-
   try{
-    const r=await fetch(`${SERVER}/counterpart`,{
-      method:"POST", headers:cpHeaders(), signal:abortCtrl.signal,
-      body:JSON.stringify({model:MODEL,max_tokens:DEPTH_TOKENS[depth],system:sysFull,messages:liveMessages,key_name:currentKey})
+    const response=await fetch(`${SERVER}/webapi/threads/${activeThread.thread.id}/messages`,{
+      method:"POST", headers:authHeaders(), signal:abortCtrl.signal,
+      body:JSON.stringify({ text:fullText, depth, attachments:attachments.length?attachments:undefined, attachment_label:fileNames.length?fileNames.join(", "):undefined })
     });
     removeWaiting();
-    if(!r.ok){ appendCpMsg("Something went wrong on my end. Try again in a moment — I am still here.",true); }
-    else{
-      const d=await r.json();
-      const reply=d.content?.filter(b=>b.type==="text").map(b=>b.text).join("")||"";
-      const sources=d._sources||null;
-      liveMessages.push({role:"assistant",content:reply});
-      s.messages.push({role:"assistant",content:reply,_sources:sources}); s.updated=Date.now(); saveSits(); renderSitList();
-      appendCpMsg(reply,true,sources);
-    }
+    if(!response.ok || !response.body){ appendCpMsg("Something went wrong on my end. Try again in a moment — I am still here.",0,true); }
+    else{ await streamReply(response); }
   }catch(e){
     removeWaiting();
-    if(e.name!=="AbortError") appendCpMsg("I lost the connection. Check your internet and try again — I haven't gone anywhere.",true);
+    if(e.name!=="AbortError") appendCpMsg("I lost the connection. Check your internet and try again — I haven't gone anywhere.",0,true);
   }
   busy=false; abortCtrl=null;
   document.getElementById("stop-btn").style.display="none";
   document.getElementById("send-btn").style.display="flex";
   focusInput();
 }
+async function streamReply(response){
+  const div=document.createElement("div"); div.className="msg msg-cp";
+  div.innerHTML=`<div class="cp-mark"><div class="cp-mark-dot"></div></div><div class="msg-cp-inner"><div class="msg-cp-bubble"><span class="cursor-blink"></span></div><div class="msg-extras"></div></div>`;
+  document.getElementById("feed").appendChild(div); scrollDown();
+  const bubble=div.querySelector(".msg-cp-bubble"), extras=div.querySelector(".msg-extras");
+
+  let fullText="", flaggedCount=0;
+  const reader=response.body.getReader(); const decoder=new TextDecoder(); let buf="";
+  while(true){
+    const {done,value}=await reader.read(); if(done)break;
+    buf+=decoder.decode(value,{stream:true});
+    let sep;
+    while((sep=buf.indexOf("\n\n"))!==-1){
+      const raw=buf.slice(0,sep); buf=buf.slice(sep+2);
+      const line=raw.split("\n").find(l=>l.startsWith("data:")); if(!line)continue;
+      let evt; try{ evt=JSON.parse(line.slice(5).trim()); }catch(e){ continue; }
+      if(evt.type==="text"){
+        fullText+=evt.delta;
+        bubble.innerHTML=formatText(fullText)+'<span class="cursor-blink"></span>';
+        scrollDownSoft();
+      } else if(evt.type==="tool"){
+        if(evt.name==="flag_verification") flaggedCount++;
+      } else if(evt.type==="error"){
+        fullText = fullText || "Something went wrong on my end. Try again in a moment — I am still here.";
+      }
+    }
+  }
+  bubble.innerHTML=formatText(fullText);
+  finishCpExtras(extras, fullText, flaggedCount);
+  if(ttsEnabled) speak(fullText);
+  scrollDown();
+  await refreshActiveThread();
+}
 function stopRequest(){ if(abortCtrl)abortCtrl.abort(); removeWaiting(); busy=false;
   document.getElementById("stop-btn").style.display="none"; document.getElementById("send-btn").style.display="flex"; toast("Stopped"); }
 
-/* ════════ STEPS ════════ */
-function offerSteps(text){
-  const m=text.match(/^\s*\d+\.\s+.+/gm);
-  if(m && m.length>=2){
-    const clean=m.map(x=>x.replace(/^\s*\d+\.\s+/,"").trim().replace(/\*\*/g,""));
-    setTimeout(()=>confirmModal(`Add ${clean.length} steps?`,"The Counterpart laid out a sequence. Add it to this situation's step tracker?","Add steps",()=>{ clean.forEach(t=>addStep(t)); openWorkspaceTo("steps"); }),400);
-  }
+/* ════════ STEPS (person + model, via web_held_items) ════════ */
+async function addStepFromInput(){
+  const el=document.getElementById("step-input"); const v=el.value.trim(); if(!v)return; el.value="";
+  await apiPost(`/threads/${activeThread.thread.id}/held`,{text:v}); await refreshActiveThread();
 }
-function addStep(text){ const s=activeSit(); if(!s)return; s.steps.push({text,done:false}); saveSits(); renderSteps(); }
-function addStepFromInput(){ const el=document.getElementById("step-input"); const v=el.value.trim(); if(!v)return; addStep(v); el.value=""; }
-function toggleStep(i){ const s=activeSit(); s.steps[i].done=!s.steps[i].done; saveSits(); renderSteps(); }
-function delStep(i){ const s=activeSit(); s.steps.splice(i,1); saveSits(); renderSteps(); }
+async function toggleStep(id,glyph){ await apiPatch(`/held/${id}`,{glyph: glyph==="done"?"live":"done"}); await refreshActiveThread(); }
+async function delStep(id){ await apiDelete(`/held/${id}`); await refreshActiveThread(); }
 function renderSteps(){
-  const s=activeSit(); const list=document.getElementById("step-list"); const empty=document.getElementById("steps-empty");
-  const steps=s?s.steps:[];
-  document.getElementById("badge-steps").textContent=steps.filter(x=>!x.done).length;
-  if(!steps.length){ list.innerHTML=""; empty.style.display="block"; return; }
+  const held = activeThread ? activeThread.held : [];
+  const list=document.getElementById("step-list"); const empty=document.getElementById("steps-empty");
+  document.getElementById("badge-steps").textContent = held.filter(h=>h.glyph!=="done").length;
+  if(!held.length){ list.innerHTML=""; empty.style.display="block"; return; }
   empty.style.display="none";
-  list.innerHTML=steps.map((st,i)=>`<li class="step-item">
-      <div class="step-check ${st.done?"done":""}" onclick="toggleStep(${i})"><svg viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-      <span class="step-text ${st.done?"done-text":""}">${esc(st.text)}</span>
-      <button class="step-del" onclick="delStep(${i})">✕</button></li>`).join("");
+  list.innerHTML = held.map(h=>{
+    const isPerson=h.source==="person"; const done=h.glyph==="done";
+    if(isPerson){
+      return `<li class="step-item">
+        <div class="step-check ${done?"done":""}" onclick="toggleStep(${h.id},'${h.glyph}')"><svg viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <span class="step-text ${done?"done-text":""}">${esc(h.text)}</span>
+        <button class="step-del" onclick="delStep(${h.id})">✕</button></li>`;
+    }
+    return `<li class="step-item">
+      <div class="step-check glyph-only ${done?"done":""}" style="background:${done?"var(--ember)":"transparent"};border-color:var(--ember)"></div>
+      <span class="step-text">${esc(h.text)}<span class="step-tag">— from Counterpart</span></span></li>`;
+  }).join("");
 }
 
-/* ════════ DOCS ════════ */
-function maybeAutoDoc(text){
-  if(/\b(dear |to whom|subject:|re:|sincerely|yours (faithfully|truly)|kind regards|best regards)\b/i.test(text)){
-    // offer rather than auto-create, to avoid clutter
-    setTimeout(()=>confirmModal("Save this as a document?","This looks like a letter or draft. Keep it in the workspace where you can edit and export it?","Save",()=>{ createDoc(autoDocTitle(text),stripMd(text)); openWorkspaceTo("docs"); }),700);
-  }
+/* ════════ DOCUMENTS (person + model, via web_artifacts) ════════ */
+function getDoc(id){ return activeThread.artifacts.find(a=>a.id===id); }
+function bodyOf(d){
+  const c=d.content_json||{};
+  if(d.kind==="prepare_email_draft") return `To: ${c.to||"(unspecified)"}\nSubject: ${c.subject||""}\n\n${c.body||""}`;
+  if(d.kind==="prepare_calendar_event") return `${c.title||""}\n${c.start_iso||""}${c.end_iso?" – "+c.end_iso:""}${c.location?"\nLocation: "+c.location:""}${c.notes?"\n\n"+c.notes:""}`;
+  return c.body_markdown ?? c.body ?? "";
+}
+async function saveAsDoc(btn){
+  const text=btn.dataset.text;
+  await apiPost(`/threads/${activeThread.thread.id}/artifacts`,{title:autoDocTitle(text), body_markdown:stripMd(text)});
+  await refreshActiveThread(); openWorkspaceTo("docs"); toast("Saved to documents");
 }
 function autoDocTitle(text){
   const subj=text.match(/subject:\s*(.+)/i); if(subj)return subj[1].trim().slice(0,40);
   const first=text.split("\n").find(l=>l.trim()); return (first||"Document").replace(/[#*]/g,"").trim().slice(0,40);
 }
 function stripMd(t){ return t.replace(/\*\*(.*?)\*\*/g,"$1").replace(/\*(.*?)\*/g,"$1").replace(/^#+\s*/gm,""); }
-function createDoc(title,body){ const s=activeSit(); if(!s)return; s.docs.unshift({id:uid(),title:title||"Document",body,created:Date.now(),updated:Date.now()}); saveSits(); renderDocs(); }
-function saveAsDoc(btn){ createDoc(autoDocTitle(btn.dataset.text), stripMd(btn.dataset.text)); openWorkspaceTo("docs"); toast("Saved to documents"); }
 function renderDocs(){
-  const s=activeSit(); const docs=s?s.docs:[]; const wrap=document.getElementById("doc-list"); const empty=document.getElementById("docs-empty");
+  const docs = activeThread ? activeThread.artifacts : [];
+  const wrap=document.getElementById("doc-list"); const empty=document.getElementById("docs-empty");
   document.getElementById("badge-docs").textContent=docs.length;
   if(!docs.length){ wrap.innerHTML=""; empty.style.display="block"; return; }
   empty.style.display="none";
-  wrap.innerHTML=docs.map(d=>`<div class="doc-card" id="dc-${d.id}">
+  wrap.innerHTML=docs.map(d=>{
+    const isPerson=d.source==="person";
+    const kindLabel = d.kind==="prepare_email_draft"?"email":d.kind==="prepare_calendar_event"?"calendar":d.kind==="document"?"":d.kind;
+    return `<div class="doc-card" id="dc-${d.id}">
       <div class="doc-card-head" onclick="document.getElementById('dc-${d.id}').classList.toggle('open')">
         <svg class="doc-ic" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+        ${kindLabel?`<span class="doc-card-kind">${esc(kindLabel)}</span>`:""}
         <span class="doc-card-title">${esc(d.title)}</span><span class="doc-card-toggle">▶</span></div>
       <div class="doc-card-body">
-        <textarea class="doc-edit" oninput="updateDoc('${d.id}',this.value)">${esc(d.body)}</textarea>
+        <textarea class="doc-edit" ${isPerson?`oninput="updateDoc(${d.id},this.value)"`:"disabled"}>${esc(bodyOf(d))}</textarea>
         <div class="doc-card-actions">
-          <button class="doc-mini" onclick="renameDoc('${d.id}')">Rename</button>
-          <button class="doc-mini" onclick="copyDoc('${d.id}')">Copy</button>
-          <button class="doc-mini" onclick="downloadDoc('${d.id}')">Download</button>
-          <button class="doc-mini" onclick="printDoc('${d.id}')">Print / PDF</button>
-          <button class="doc-mini del" onclick="deleteDoc('${d.id}')">Delete</button>
-        </div></div></div>`).join("");
+          ${isPerson?`<button class="doc-mini" onclick="renameDoc(${d.id})">Rename</button>`:""}
+          <button class="doc-mini" onclick="copyDoc(${d.id})">Copy</button>
+          <button class="doc-mini" onclick="downloadDoc(${d.id})">Download</button>
+          <button class="doc-mini" onclick="printDoc(${d.id})">Print / PDF</button>
+          ${isPerson?`<button class="doc-mini del" onclick="deleteDoc(${d.id})">Delete</button>`:""}
+        </div></div></div>`;
+  }).join("");
 }
-function getDoc(id){ const s=activeSit(); return s&&s.docs.find(d=>d.id===id); }
-function updateDoc(id,v){ const d=getDoc(id); if(d){ d.body=v; d.updated=Date.now(); saveSits(); } }
-function renameDoc(id){ const d=getDoc(id); if(!d)return; promptModal("Rename document","",d.title,v=>{ d.title=v.trim()||"Document"; saveSits(); renderDocs(); }); }
-function copyDoc(id){ const d=getDoc(id); if(d) navigator.clipboard.writeText(d.body).then(()=>toast("Document copied")); }
-function downloadDoc(id){ const d=getDoc(id); if(d) download(`${d.title.replace(/[^\w]+/g,"_")}.txt`, d.body); }
-function printDoc(id){ const d=getDoc(id); if(!d)return; const w=window.open("","_blank"); w.document.write(`<title>${esc(d.title)}</title><body style="font-family:Georgia,serif;max-width:640px;margin:40px auto;line-height:1.7;white-space:pre-wrap;color:#1a1a1a">${esc(d.body)}</body>`); w.document.close(); w.focus(); setTimeout(()=>w.print(),250); }
-function deleteDoc(id){ const s=activeSit(); s.docs=s.docs.filter(d=>d.id!==id); saveSits(); renderDocs(); }
+let docSaveTimer=null;
+function updateDoc(id,v){
+  clearTimeout(docSaveTimer);
+  docSaveTimer=setTimeout(()=>apiPatch(`/artifacts/${id}`,{body_markdown:v}).catch(()=>{}), 500);
+}
+function renameDoc(id){
+  const d=getDoc(id); if(!d)return;
+  promptModal("Rename document","",d.title,async v=>{ await apiPatch(`/artifacts/${id}`,{title:v.trim()||"Document"}); await refreshActiveThread(); });
+}
+function copyDoc(id){ const d=getDoc(id); if(d) navigator.clipboard.writeText(bodyOf(d)).then(()=>toast("Document copied")); }
+function downloadDoc(id){ const d=getDoc(id); if(d) download(`${(d.title||"document").replace(/[^\w]+/g,"_")}.txt`, bodyOf(d)); }
+function printDoc(id){ const d=getDoc(id); if(!d)return; const w=window.open("","_blank"); w.document.write(`<title>${esc(d.title)}</title><body style="font-family:Georgia,serif;max-width:640px;margin:40px auto;line-height:1.7;white-space:pre-wrap;color:#1a1a1a">${esc(bodyOf(d))}</body>`); w.document.close(); w.focus(); setTimeout(()=>w.print(),250); }
+async function deleteDoc(id){ await apiDelete(`/artifacts/${id}`); await refreshActiveThread(); }
+
+/* ════════ VERIFICATION ════════ */
+const VERIF_CYCLE=["just_surfaced","person_confirming","counterpart_checking","proceeding_unconfirmed","confirmed"];
+const VERIF_LABEL={just_surfaced:"just surfaced",person_confirming:"you're confirming",counterpart_checking:"I'm checking",proceeding_unconfirmed:"proceeding, unconfirmed",confirmed:"confirmed"};
+function renderVerification(){
+  const items = activeThread ? activeThread.verification : [];
+  document.getElementById("badge-verification").textContent = items.filter(v=>v.status!=="confirmed").length;
+  const wrap=document.getElementById("verification-list"); const empty=document.getElementById("verification-empty");
+  if(!items.length){ wrap.innerHTML=""; empty.style.display="block"; return; }
+  empty.style.display="none";
+  wrap.innerHTML=items.map(v=>{
+    const idx=VERIF_CYCLE.indexOf(v.status); const next=VERIF_CYCLE[(idx+1)%VERIF_CYCLE.length];
+    return `<div class="verif-chip" onclick="cycleVerification(${v.id},'${next}')">
+      <div class="verif-dot ${v.status==="confirmed"?"ok":""}"></div>
+      <div class="verif-text">${esc(v.claim_text)}</div>
+      <div class="verif-status">${VERIF_LABEL[v.status]}</div>
+    </div>`;
+  }).join("");
+}
+async function cycleVerification(id,next){ await apiPost(`/verification/${id}`,{status:next}); await refreshActiveThread(); }
 
 /* ════════ CONTEXT ════════ */
 let ctxTimer=null;
-function onCtxInput(){ const s=activeSit(); if(!s)return; s.context=document.getElementById("ctx-area").value; clearTimeout(ctxTimer);
+function onCtxInput(){
+  if(!activeThread)return; clearTimeout(ctxTimer);
   document.getElementById("ctx-save").textContent="saving…";
-  ctxTimer=setTimeout(()=>{ saveSits(); document.getElementById("ctx-save").textContent="saved ✓"; setTimeout(()=>document.getElementById("ctx-save").innerHTML="&nbsp;",1500); },500); }
+  const val=document.getElementById("ctx-area").value;
+  ctxTimer=setTimeout(async()=>{
+    await apiPatch(`/threads/${activeThread.thread.id}`,{context:val});
+    activeThread.thread.context=val;
+    document.getElementById("ctx-save").textContent="saved ✓";
+    setTimeout(()=>document.getElementById("ctx-save").innerHTML="&nbsp;",1500);
+  },500);
+}
 
 /* ════════ SUMMARISE ════════ */
 async function summarise(){
-  const s=activeSit(); if(!s||!s.messages.length){ toast("Nothing to summarise yet"); return; }
+  if(!activeThread || !activeThread.turns.length){ toast("Nothing to summarise yet"); return; }
   infoModal("Situation summary","Generating summary…",false);
-  const convo=s.messages.map(m=>`${m.role}: ${msgText(m.content)}`).join("\n");
-  try{
-    const r=await fetch(`${SERVER}/counterpart`,{ method:"POST",headers:cpHeaders(),
-      body:JSON.stringify({model:MODEL,max_tokens:400,system:"You summarise conversations in plain language.",messages:[{role:"user",content:`In three to five sentences, summarise this: what the person is dealing with, what has been decided or drafted, and what the next action is. Be concrete and plain.\n\n${convo}`}],key_name:currentKey}) });
-    const d=await r.json();
-    const txt=d.content?.filter(b=>b.type==="text").map(b=>b.text).join("")||"Could not generate summary.";
-    infoModal("Situation summary",txt,true);
-  }catch(e){ infoModal("Situation summary","Could not connect. Try again.",true); }
+  try{ const d=await apiPost(`/threads/${activeThread.thread.id}/summarise`,{}); infoModal("Situation summary",d.summary,true); }
+  catch(e){ infoModal("Situation summary","Could not connect. Try again.",true); }
 }
 
 /* ════════ FILES ════════ */
 function handleFiles(input){ Array.from(input.files).forEach(f=>pendingFiles.push(f)); input.value=""; renderPreviews(); }
 function removeFile(i){ pendingFiles.splice(i,1); renderPreviews(); }
-async function extractPdfText(file){
-  if(!window.pdfjsLib) throw new Error("pdf.js not loaded");
-  const buf=await file.arrayBuffer();
-  const pdf=await pdfjsLib.getDocument({data:buf}).promise;
-  let text="";
-  for(let i=1;i<=pdf.numPages;i++){
-    const page=await pdf.getPage(i);
-    const content=await page.getTextContent();
-    text += content.items.map(it=>it.str).join(" ") + "\n\n";
-  }
-  return text.trim();
-}
 function renderPreviews(){
   const c=document.getElementById("upload-previews");
   if(!pendingFiles.length){ c.style.display="none"; c.innerHTML=""; return; }
@@ -962,10 +954,10 @@ function toggleWorkspace(){ const ws=document.getElementById("workspace"); ws.cl
   if(window.innerWidth<=1024) document.getElementById("scrim").classList.toggle("on",!ws.classList.contains("hidden"));
   document.getElementById("ws-toggle-btn").classList.toggle("on",!ws.classList.contains("hidden")); }
 function openWorkspaceTo(tab){ document.getElementById("workspace").classList.remove("hidden"); if(window.innerWidth<=1024)document.getElementById("scrim").classList.add("on"); switchTab(tab); }
-function switchTab(t){ ["steps","docs","context"].forEach(x=>{ document.getElementById("pane-"+x).classList.toggle("on",x===t); document.getElementById("tab-"+x).classList.toggle("active",x===t); }); }
+function switchTab(t){ ["steps","docs","verification","context"].forEach(x=>{ document.getElementById("pane-"+x).classList.toggle("on",x===t); document.getElementById("tab-"+x).classList.toggle("active",x===t); }); }
 function closeDrawers(){ document.getElementById("sidebar").classList.add("closed"); document.getElementById("workspace").classList.add("hidden"); document.getElementById("scrim").classList.remove("on"); }
-function setDepth(v){ depth=v; savePrefs(); }
-function useStarter(el){ const inp=document.getElementById("msg-input"); inp.value=el.textContent+": "; inp.focus(); autoResize(inp); }
+function setDepth(v){ depth=v; }
+function useStarter(el){ const inp=document.getElementById("msg-input"); inp.value=el.textContent; inp.focus(); autoResize(inp); }
 function autoResize(el){ el.style.height="auto"; el.style.height=Math.min(el.scrollHeight,180)+"px"; }
 function handleKey(e){ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); sendMessage(); } }
 function focusInput(){ setTimeout(()=>{ const el=document.getElementById("msg-input"); if(el&&window.innerWidth>1024)el.focus(); },120); }
@@ -973,7 +965,7 @@ function scrollDown(){ const sc=document.getElementById("convo-scroll"); request
 function scrollDownSoft(){ const sc=document.getElementById("convo-scroll"); if(sc.scrollHeight-sc.scrollTop-sc.clientHeight<160) sc.scrollTop=sc.scrollHeight; }
 function toast(msg,dur=2200){ const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),dur); }
 function copyText(btn){ navigator.clipboard.writeText(btn.dataset.text).then(()=>toast("Copied")); }
-function signOut(){ confirmModal("Sign out?","You'll need your key to return. Your situations stay saved on this device.","Sign out",()=>{ try{localStorage.removeItem(ACCESS_STORE);}catch(e){} location.reload(); }); }
+function signOut(){ confirmModal("Sign out?","You'll need your key to return. Your situations stay held on the server.","Sign out",()=>{ try{localStorage.removeItem(ACCESS_STORE);}catch(e){} location.reload(); }); }
 
 /* ════════ MODALS ════════ */
 function closeModal(){ document.getElementById("modal").classList.remove("open"); }
@@ -1023,26 +1015,24 @@ function download(name,text){ const b=new Blob([text],{type:"text/plain;charset=
 function onKeyInput(input){ document.getElementById("flame-svg").classList.toggle("alive",input.value.length>0);
   const h=document.getElementById("key-hint"); h.className="key-hint"; h.innerHTML="&nbsp;"; input.classList.remove("wrong"); }
 function onKeyDown(e){ if(e.key==="Enter"){ e.preventDefault(); attemptEntry(); } }
-function attemptEntry(){
+async function attemptEntry(){
   const input=document.getElementById("key-input"), hint=document.getElementById("key-hint");
   const val=input.value.trim(); if(!val)return;
-  const res=validateKey(val);
-  if(res.valid){ storeAccess(res.key); currentKey=res.key; input.style.opacity="0"; document.getElementById("flame-svg").style.opacity="0";
-    setTimeout(enterApp,380); }
-  else{ input.classList.add("wrong"); hint.className="key-hint err"; hint.textContent=res.reason||"That key isn't recognised.";
+  hint.className="key-hint"; hint.textContent="checking…";
+  const ok=await verifyKeyServer(val);
+  if(ok){ currentKey=val; storeAccess(val); input.style.opacity="0"; document.getElementById("flame-svg").style.opacity="0"; setTimeout(enterApp,380); }
+  else{ input.classList.add("wrong"); hint.className="key-hint err"; hint.textContent="That key isn't recognised or has expired.";
     setTimeout(()=>{ input.classList.remove("wrong"); input.value=""; hint.className="key-hint"; hint.innerHTML="&nbsp;"; document.getElementById("flame-svg").classList.remove("alive"); input.style.opacity="1"; },1600); }
 }
 
 /* ════════ BOOT ════════ */
-function enterApp(){
+async function enterApp(){
   document.getElementById("key-screen").classList.add("gone");
   document.getElementById("app-shell").classList.add("ready");
   document.getElementById("key-label").textContent=currentKey;
-  orgContext=loadOrgContext();
-  loadAll();
-  if(!sits.length) newSituation(false);
-  else openSituation(activeId&&sits.find(s=>s.id===activeId)?activeId:sits[0].id);
-  document.getElementById("depth-select").value=depth;
+  await loadSituationList();
+  if(!situations.length) await newSituation(false);
+  else await openSituation(situations[0].id);
   if(window.innerWidth>1024 && matchMedia("(pointer:fine)").matches) document.getElementById("workspace").classList.remove("hidden");
   document.getElementById("ws-toggle-btn").classList.toggle("on",!document.getElementById("workspace").classList.contains("hidden"));
   if(window.innerWidth<=1024) document.getElementById("sidebar").classList.add("closed");
@@ -1053,10 +1043,10 @@ document.addEventListener("keydown",e=>{
   if(e.key==="Escape"){ closeModal(); closeSitMenu(); }
   if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="k"){ e.preventDefault(); newSituation(); }
 });
-(function boot(){
-  try{ const s=localStorage.getItem(ACCESS_STORE); if(s){ const p=JSON.parse(s); if(validateKey(p.key).valid) currentKey=p.key; } }catch(e){}
-  if(checkStoredAccess()){ enterApp(); }
-  else{ document.getElementById("key-screen").classList.remove("gone"); setTimeout(()=>document.getElementById("key-input").focus(),100); }
+(async function boot(){
+  try{ currentKey=localStorage.getItem(ACCESS_STORE)||""; }catch(e){ currentKey=""; }
+  if(currentKey && await verifyKeyServer(currentKey)){ await enterApp(); }
+  else{ try{ localStorage.removeItem(ACCESS_STORE); }catch(e){} document.getElementById("key-screen").classList.remove("gone"); setTimeout(()=>document.getElementById("key-input").focus(),100); }
 })();
 if("serviceWorker" in navigator){ window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{})); }
 </script>
