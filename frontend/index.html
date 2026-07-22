@@ -126,7 +126,7 @@ button{font-family:inherit}
   display:flex;align-items:center;gap:10px;padding:0.8rem 1.1rem;border-bottom:1px solid var(--cream-faint);
   background:rgba(255,255,255,0.75);backdrop-filter:blur(6px)
 }
-.hdr-toggle{display:none}
+.hdr-toggle{display:flex}
 .sit-title-edit{
   flex:1;min-width:0;font-family:'Open Sans',sans-serif;font-size:19px;font-weight:400;color:var(--cream);
   background:transparent;border:none;border-bottom:1px solid transparent;outline:none;padding:2px 0;
@@ -325,7 +325,6 @@ button{font-family:inherit}
   .ws-close{display:flex;flex-shrink:0;margin:6px 8px 6px 0}
   .sidebar{position:fixed;left:0;top:0;height:100vh;z-index:50;box-shadow:10px 0 40px rgba(0,0,0,0.4)}
   .sidebar.closed{margin-left:calc(-1 * var(--sb-w))}
-  .hdr-toggle{display:flex}
 }
 @media(max-width:640px){
   .welcome-head{font-size:40px}
