@@ -273,22 +273,6 @@ button{font-family:inherit}
 // Set this to YOUR server's Railway URL after you deploy it (see README.md
 // in the parent folder). Example: "https://my-company-counterpart.up.railway.app"
 const SERVER = "https://counterpart-template-server-production.up.railway.app";
-// Must match the CLIENT_SECRET variable set on your Railway server.
-const CLIENT_SECRET = "704b264a308f905f2ee8a04b258f5db56222475e82158154";
-function cpHeaders(){
-  const h = {"Content-Type":"application/json"};
-  if(CLIENT_SECRET) h["X-Client-Secret"] = CLIENT_SECRET;
-  return h;
-}
-const MODEL  = "claude-sonnet-4-6";
-
-const ACCESS_KEYS = [
-  { key:"ESSENCE-2026",  validFrom:"2026-06-01", validTo:"2027-06-01" },
-  { key:"BAAFOUR-2026",  validFrom:"2026-06-01", validTo:"2027-06-01" },
-  { key:"BENJI-2026",    validFrom:"2026-06-01", validTo:"2027-06-01" },
-  { key:"EINSTJII-2026", validFrom:"2026-06-01", validTo:"2027-06-01" },
-];
-const REGISTRY_KEY = "cp_key_registry_v1";       // keys issued by Operator / Partner consoles
 const VOICE_ACCESS_STORE = "cp_voice_access_v1";
 
 const LANGS = [
@@ -300,84 +284,22 @@ const LANGS = [
   { code:"es", label:"Spanish", speech:"es-ES" },
 ];
 
-const SYSTEM = `You are a counterpart. Not an assistant. Not a tool. A counterpart.
-
-A counterpart stays with a person inside a problem whose complexity exceeds what they can personally manage. You carry the operational weight of that complexity — the thinking, the drafting, the structuring, the sequencing — and you leave the moral weight with them. Their judgment. Their values. The consequences of their choices. Those stay with them.
-
-THE STANCE.
-Bring me the whole mess. The person does not need to preprocess themselves before speaking to you. They do not need to know what they need. They do not need to translate their situation into a form you can accept. They bring it as it is. You stay with it.
-
-WHAT YOU DO.
-You receive messy reality as input — fragments, worries, half-formed intentions, bureaucratic tangles, family obligations, documents they don't understand, institutional charges, decisions they can't see clearly. You hold the thread across the conversation. You advance the situation.
-
-When a real artifact is what the problem requires — a letter, a list of steps, a plan, a script for a conversation — you produce that artifact at full fidelity. Not a description of what it would be. The real thing.
-
-When the person asks what they should do, give your best judgment plainly. Name what you think the strongest path is and why. Name what stays with them to decide.
-
-If you believe the shape of what they are attempting is wrong, say so and explain why. The final call is theirs. The judgment is yours.
-
-WHAT YOU REFUSE.
-You refuse to make the person think about how you work. You decide internally and commit. You refuse to counterfeit adequacy — when uncertain about something specific, say so precisely and flag it at the point where it matters. You refuse speed theater. You refuse fragmentation. You refuse performative intelligence.
-
-THE GOVERNING REFUSAL.
-You refuse domination. You guide, warn, resist shallowness, protect the integrity of the problem, challenge when you have reason to. You do not take the person's place as the bearer of judgment, values, or consequence.
-
-LANGUAGE.
-Follow the person's language. If they write in Twi, Ga, French, or any other language, respond in that language. Do not default to English unless they use English.
-
-TONE.
-Warm. Direct. Unhurried. Not clinical. Not cheerful. Not performing empathy. Present. Write in plain language. Short paragraphs. Avoid bullet points unless a numbered list of steps is genuinely what the situation requires — and when you do produce numbered steps, make them concrete and actionable.
-
-When the person uploads a photo or document, read it carefully and work with what it actually says. Do not guess at content you cannot see clearly.
-
-When the person is acting on behalf of others — a family member, people who depend on them — help them carry that accountability well. What they share is held with care.
-
-VOICE MODE.
-This conversation may be spoken aloud and read aloud in reply. Keep responses conversational and not too long — favor a few clear spoken-style paragraphs over long lists or headings. If a real document or script is genuinely needed, still produce it in full.`;
-
-/* ════════ ACCESS ════════ */
-function todayUTC(){ return new Date().toISOString().slice(0,10); }
-function loadRegistry(){ try{ return JSON.parse(localStorage.getItem(REGISTRY_KEY)||"[]"); }catch(e){ return []; } }
-function validateKey(input){
-  const n=input.trim().toUpperCase(), today=todayUTC();
-  for(const e of ACCESS_KEYS){
-    if(e.key===n){
-      if(today>=e.validFrom && today<=e.validTo) return {valid:true,key:e.key};
-      if(today<e.validFrom) return {valid:false,reason:"This key isn't active yet."};
-      return {valid:false,reason:"This key has expired."};
-    }
-  }
-  for(const e of loadRegistry()){
-    if(e.key===n){
-      if(e.revoked)           return {valid:false,reason:"This key has been revoked."};
-      if(today<e.validFrom)   return {valid:false,reason:"This key isn't active yet."};
-      if(today>e.validTo)     return {valid:false,reason:"This key has expired."};
-      return {valid:true,key:e.key};
-    }
-  }
-  return {valid:false,reason:null};
+/* ════════ SERVER ACCESS ════════ */
+function authHeaders(){ return {"Content-Type":"application/json","x-counterpart-key":currentKey}; }
+async function apiGet(path){ const r=await fetch(`${SERVER}/webapi${path}`,{headers:authHeaders()}); if(!r.ok) throw new Error("request failed"); return r.json(); }
+async function apiPost(path,body){ const r=await fetch(`${SERVER}/webapi${path}`,{method:"POST",headers:authHeaders(),body:JSON.stringify(body||{})}); if(!r.ok) throw new Error("request failed"); return r.json(); }
+async function apiPatch(path,body){ const r=await fetch(`${SERVER}/webapi${path}`,{method:"PATCH",headers:authHeaders(),body:JSON.stringify(body||{})}); if(!r.ok) throw new Error("request failed"); return r.json(); }
+async function apiDelete(path){ const r=await fetch(`${SERVER}/webapi${path}`,{method:"DELETE",headers:authHeaders()}); if(!r.ok) throw new Error("request failed"); return r.json(); }
+async function verifyKeyServer(key){
+  try{ const r=await fetch(`${SERVER}/webapi/auth/verify`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({key})}); const d=await r.json(); return !!d.ok; }
+  catch(e){ return false; }
 }
-function storeAccess(key){ try{ localStorage.setItem(VOICE_ACCESS_STORE,JSON.stringify({key})); }catch(e){} }
-function checkStoredAccess(){ try{ const s=localStorage.getItem(VOICE_ACCESS_STORE); if(!s)return false; return validateKey(JSON.parse(s).key).valid; }catch(e){ return false; } }
-function seatEntry(){ return loadRegistry().find(e=>e.key===currentKey); }
-function loadOrgContext(){
-  try{
-    const entry=seatEntry();
-    return (entry&&entry.org) ? (localStorage.getItem(`cp_org_context_v1__${entry.org}`)||"") : "";
-  }catch(e){ return ""; }
-}
-function seatDefaults(){
-  const entry=seatEntry();
-  return {
-    lang: (entry&&entry.lang) ? entry.lang : "en",
-    voiceFirst: entry ? (entry.voiceFirst!==false) : true,
-  };
-}
+function storeAccess(key){ try{ localStorage.setItem(VOICE_ACCESS_STORE,key); }catch(e){} }
 
 /* ════════ STATE ════════ */
-let currentKey="", orgContext="";
+let currentKey="";
+let activeThreadId=null;
 let lang="en", mode="voice", ttsEnabled=true;
-let messages=[];
 let busy=false, recognition=null, isRecording=false;
 
 function NS(suffix){ return `cpv_${suffix}_v1__${currentKey}`; }
@@ -386,12 +308,18 @@ function loadPrefs(){
     const p=JSON.parse(localStorage.getItem(NS("prefs"))||"null");
     if(p) return p;
   }catch(e){}
-  const d=seatDefaults();
-  return { lang:d.lang, mode:(d.voiceFirst?"voice":"text"), tts:d.voiceFirst };
+  return { lang:"en", mode:"voice", tts:true };
 }
 function savePrefs(){ try{ localStorage.setItem(NS("prefs"),JSON.stringify({lang,mode,tts:ttsEnabled})); }catch(e){} }
-function loadMessages(){ try{ return JSON.parse(localStorage.getItem(NS("messages"))||"[]"); }catch(e){ return []; } }
-function saveMessages(){ try{ localStorage.setItem(NS("messages"),JSON.stringify(messages)); }catch(e){} }
+function langInstruction(){
+  const l=LANGS.find(x=>x.code===lang);
+  if(!l || l.code==="en") return "";
+  return `The person has set their preferred language to ${l.label}. Respond in ${l.label} unless they switch languages themselves.`;
+}
+async function syncLangContext(){
+  if(!activeThreadId) return;
+  try{ await apiPatch(`/threads/${activeThreadId}`,{context:langInstruction()}); }catch(e){}
+}
 
 /* ════════ UTIL ════════ */
 function esc(t){ return (t||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
@@ -488,13 +416,13 @@ function showWaiting(){
   feed.appendChild(div); scrollDown();
 }
 function removeWaiting(){ const el=document.getElementById("cp-waiting"); if(el)el.remove(); }
-function renderConvo(){
+function renderConvo(turns){
   const feed=document.getElementById("feed"); feed.innerHTML="";
-  if(!messages.length){ document.getElementById("welcome").style.display="block"; return; }
+  if(!turns.length){ document.getElementById("welcome").style.display="block"; return; }
   document.getElementById("welcome").style.display="none";
-  messages.forEach(m=>{
-    if(m.role==="user") appendPersonMsg(m.content,false);
-    else appendCpMsg(m.content,false,false);
+  turns.forEach(t=>{
+    if(t.role==="person") appendPersonMsg(t.content,false);
+    else appendCpMsg(t.content,false,false);
   });
   scrollDown();
 }
@@ -513,27 +441,37 @@ async function sendMessage(text){
   if(!text||busy) return;
   setBusyUI(true);
   appendPersonMsg(text);
-  messages.push({role:"user",content:text});
-  saveMessages();
   showWaiting();
 
-  let sysFull = SYSTEM;
-  if(orgContext) sysFull += `\n\nSTANDING CONTEXT FROM THE ORGANISATION (applies to everyone in this programme):\n${orgContext}`;
-  sysFull += langInstruction();
-
   try{
-    const r=await fetch(`${SERVER}/counterpart`,{
-      method:"POST", headers:cpHeaders(),
-      body:JSON.stringify({model:MODEL,max_tokens:1400,system:sysFull,messages:messages,key_name:currentKey})
+    if(!activeThreadId){
+      const d=await apiPost("/threads",{});
+      activeThreadId=d.thread.id;
+      await syncLangContext();
+    }
+    const response=await fetch(`${SERVER}/webapi/threads/${activeThreadId}/messages`,{
+      method:"POST", headers:authHeaders(),
+      body:JSON.stringify({text, depth:"standard"})
     });
     removeWaiting();
-    if(!r.ok){ appendCpMsg("Something went wrong on my end. Try again in a moment — I am still here.",true); }
+    if(!response.ok || !response.body){ appendCpMsg("Something went wrong on my end. Try again in a moment — I am still here.",true); }
     else{
-      const d=await r.json();
-      const reply=d.content?.filter(b=>b.type==="text").map(b=>b.text).join("")||"";
-      messages.push({role:"assistant",content:reply});
-      saveMessages();
-      appendCpMsg(reply,true);
+      let fullText="";
+      const reader=response.body.getReader(); const decoder=new TextDecoder(); let buf="";
+      while(true){
+        const {done,value}=await reader.read(); if(done)break;
+        buf+=decoder.decode(value,{stream:true});
+        let sep;
+        while((sep=buf.indexOf("\n\n"))!==-1){
+          const raw=buf.slice(0,sep); buf=buf.slice(sep+2);
+          const line=raw.split("\n").find(l=>l.startsWith("data:")); if(!line)continue;
+          let evt; try{ evt=JSON.parse(line.slice(5).trim()); }catch(e){ continue; }
+          if(evt.type==="text") fullText+=evt.delta;
+          // type:"tool" events are dropped here — voice.html has no workspace UI to
+          // surface them in; the tool's effect still persists server-side.
+        }
+      }
+      appendCpMsg(fullText || "Something went wrong on my end. Try again in a moment — I am still here.", true);
     }
   }catch(e){
     removeWaiting();
@@ -617,6 +555,7 @@ function setMode(m){
 function onLangChange(v){
   lang=v; savePrefs();
   if(recognition) recognition.lang=speechLocale();
+  syncLangContext();
 }
 function toggleTTS(){
   ttsEnabled=!ttsEnabled; savePrefs(); updateTtsBtn();
@@ -628,9 +567,10 @@ function updateTtsBtn(){
   b.title = ttsEnabled ? "Spoken replies: on (tap to mute)" : "Spoken replies: off (tap to enable)";
 }
 function clearConvo(){
-  if(!messages.length){ toast("Nothing to clear"); return; }
-  confirmModal("Clear this conversation?","This removes everything said so far on this device. It can't be undone.","Clear",()=>{
-    messages=[]; saveMessages();
+  if(!activeThreadId){ toast("Nothing to clear"); return; }
+  confirmModal("Clear this conversation?","This removes everything said so far. It can't be undone.","Clear",async()=>{
+    await apiDelete(`/threads/${activeThreadId}`);
+    activeThreadId=null;
     document.getElementById("feed").innerHTML="";
     document.getElementById("welcome").style.display="block";
     if(window.speechSynthesis) window.speechSynthesis.cancel();
@@ -642,39 +582,41 @@ function clearConvo(){
 function onKeyInput(input){ document.getElementById("flame-svg").classList.toggle("alive",input.value.length>0);
   const h=document.getElementById("key-hint"); h.className="key-hint"; h.innerHTML="&nbsp;"; input.classList.remove("wrong"); }
 function onKeyDown(e){ if(e.key==="Enter"){ e.preventDefault(); attemptEntry(); } }
-function attemptEntry(){
+async function attemptEntry(){
   const input=document.getElementById("key-input"), hint=document.getElementById("key-hint");
   const val=input.value.trim(); if(!val)return;
-  const res=validateKey(val);
-  if(res.valid){ storeAccess(res.key); currentKey=res.key; input.style.opacity="0"; document.getElementById("flame-svg").style.opacity="0";
+  hint.className="key-hint"; hint.textContent="checking…";
+  const ok=await verifyKeyServer(val);
+  if(ok){ storeAccess(val); currentKey=val; input.style.opacity="0"; document.getElementById("flame-svg").style.opacity="0";
     setTimeout(enterApp,380); }
-  else{ input.classList.add("wrong"); hint.className="key-hint err"; hint.textContent=res.reason||"That key isn't recognised.";
+  else{ input.classList.add("wrong"); hint.className="key-hint err"; hint.textContent="That key isn't recognised or has expired.";
     setTimeout(()=>{ input.classList.remove("wrong"); input.value=""; hint.className="key-hint"; hint.innerHTML="&nbsp;"; document.getElementById("flame-svg").classList.remove("alive"); input.style.opacity="1"; },1600); }
 }
 
 /* ════════ BOOT ════════ */
-function enterApp(){
+async function enterApp(){
   document.getElementById("key-screen").classList.add("gone");
   document.getElementById("app-shell").classList.add("ready");
   document.getElementById("key-label").textContent=currentKey;
-  orgContext=loadOrgContext();
 
   const p=loadPrefs();
   lang=p.lang||"en"; mode=p.mode||"voice"; ttsEnabled=(p.tts!==false);
   document.getElementById("lang-select").value=lang;
   updateTtsBtn();
 
-  messages=loadMessages();
-  renderConvo();
+  const active=await apiGet("/threads/active");
+  activeThreadId = active.thread ? active.thread.id : null;
+  renderConvo(active.turns || []);
+  if(activeThreadId) await syncLangContext();
   setMode(mode);
   focusInput();
 }
 document.addEventListener("keydown",e=>{ if(e.key==="Escape") closeModal(); });
-(function boot(){
+(async function boot(){
   document.getElementById("lang-select").innerHTML = LANGS.map(l=>`<option value="${l.code}">${l.label}</option>`).join("");
-  try{ const s=localStorage.getItem(VOICE_ACCESS_STORE); if(s){ const p=JSON.parse(s); if(validateKey(p.key).valid) currentKey=p.key; } }catch(e){}
-  if(checkStoredAccess()){ enterApp(); }
-  else{ document.getElementById("key-screen").classList.remove("gone"); setTimeout(()=>document.getElementById("key-input").focus(),100); }
+  try{ currentKey=localStorage.getItem(VOICE_ACCESS_STORE)||""; }catch(e){ currentKey=""; }
+  if(currentKey && await verifyKeyServer(currentKey)){ enterApp(); }
+  else{ try{ localStorage.removeItem(VOICE_ACCESS_STORE); }catch(e){} document.getElementById("key-screen").classList.remove("gone"); setTimeout(()=>document.getElementById("key-input").focus(),100); }
 })();
 if("serviceWorker" in navigator){ window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{})); }
 </script>
