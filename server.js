@@ -5,6 +5,7 @@ require('dotenv').config();
 const { migrate } = require('./db');
 const { startPresenceNudges } = require('./lib/pushNudge');
 const apiRouter = require('./routes/api');
+const webapiRouter = require('./routes/webapi');
 
 const app = express();
 
@@ -56,6 +57,11 @@ app.get('/', (req, res) => res.json({ status: 'ok', service: 'counterpart-server
 // Real per-key DB auth (not the shared CLIENT_SECRET above), problem-scoped
 // persistence, SSE streaming, and tool-use wiring for the React Native app.
 app.use('/api', apiRouter);
+
+// ── WEB APP API ──────────────────────────────────────────────────────────────
+// Own auth, own tables (web_*), deliberately isolated from /api above — a bug in
+// one can't take down the other. Shares only lib/claude.js (pure, stateless).
+app.use('/webapi', webapiRouter);
 
 // ── TAVILY SEARCH HELPER ─────────────────────────────────────────────────────
 async function tavilySearch(query) {
@@ -192,6 +198,13 @@ if (process.env.DATABASE_URL) {
   migrate()
     .then(() => startPresenceNudges())
     .catch(err => console.error('[db] migration failed — /api routes will not work until this is fixed:', err));
+
+  // Independent try/catch chain from the mobile migrate() above — a failure seeding
+  // or migrating the web app's tables must never block the mobile app's boot, and
+  // vice versa.
+  webapiRouter.migrateWeb()
+    .then(() => webapiRouter.seedDemoKeys())
+    .catch(err => console.error('[db] web migration/seed failed — /webapi routes will not work until this is fixed:', err));
 } else {
-  console.log('[db] DATABASE_URL not set — /api (mobile app) routes will fail until it is configured');
+  console.log('[db] DATABASE_URL not set — /api (mobile app) and /webapi (web app) routes will fail until it is configured');
 }
