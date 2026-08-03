@@ -177,6 +177,34 @@ async function buildExtraContext(accessKeyId, threadContext) {
   return extra;
 }
 
+// Live ground truth for what's actually held/unconfirmed right now — queried fresh on
+// every turn, independent of conversation history or the compacted summary. Without this,
+// the model's sense of the problem's state depends entirely on what it said in past turns
+// (now sometimes lossy-compressed), which risks drifting from what the person actually
+// sees on the Steps/Verification panes, and risks near-duplicate held items when the model
+// paraphrases something it already holds instead of matching the exact stored text.
+async function buildGroundTruthContext(threadId) {
+  const [held, verif] = await Promise.all([
+    pool.query(`SELECT text, glyph, due_at, blocked_on FROM web_held_items WHERE thread_id = $1 ORDER BY id ASC`, [threadId]),
+    pool.query(`SELECT claim_text, status FROM web_verification_items WHERE thread_id = $1 AND status != 'confirmed' ORDER BY id ASC`, [threadId]),
+  ]);
+  let block = '';
+  if (held.rows.length) {
+    block += `\n\nCURRENT HELD STATE FOR THIS SITUATION (ground truth right now — to update one of these via update_held_thread, use its exact text below so it updates in place instead of creating a near-duplicate):\n`;
+    block += held.rows.map(h => {
+      const bits = [`[${h.glyph}] ${h.text}`];
+      if (h.due_at) bits.push(`due ${new Date(h.due_at).toISOString().slice(0, 10)}`);
+      if (h.blocked_on) bits.push(`blocked on: ${h.blocked_on}`);
+      return `- ${bits.join(' — ')}`;
+    }).join('\n');
+  }
+  if (verif.rows.length) {
+    block += `\n\nCURRENT VERIFICATION REGISTER (claims still not confirmed):\n`;
+    block += verif.rows.map(v => `- [${v.status}] ${v.claim_text}`).join('\n');
+  }
+  return block;
+}
+
 // ── Context compaction ────────────────────────────────────────────────────────
 // Every request rebuilds message history from web_turns, so a situation left running
 // long would otherwise resend its ENTIRE history every time — the longest, most
@@ -349,6 +377,7 @@ router.post('/threads/:id/messages', asyncRoute(async (req, res) => {
   }
 
   let extraSystemContext = await buildExtraContext(req.accessKeyId, threadRow.rows[0]?.context || '');
+  extraSystemContext += await buildGroundTruthContext(threadId);
   if (summary) {
     extraSystemContext += `\n\nSTANDING SUMMARY OF THIS SITUATION SO FAR (everything before the recent messages has been condensed into this — treat it as established, not something to re-derive or ask about again):\n${summary}`;
   }
