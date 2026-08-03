@@ -327,13 +327,13 @@ router.post('/threads/:id/messages', asyncRoute(async (req, res) => {
         );
         if (existing.rows[0]) {
           await pool.query(
-            `UPDATE held_items SET glyph = $1, meta = $2, updated_at = now() WHERE id = $3`,
-            [call.input.glyph, call.input.meta || null, existing.rows[0].id]
+            `UPDATE held_items SET glyph = $1, meta = $2, due_at = $3, blocked_on = $4, updated_at = now() WHERE id = $5`,
+            [call.input.glyph, call.input.meta || null, call.input.due_at || null, call.input.blocked_on || null, existing.rows[0].id]
           );
         } else {
           await pool.query(
-            `INSERT INTO held_items (thread_id, text, glyph, meta) VALUES ($1,$2,$3,$4)`,
-            [threadId, call.input.text, call.input.glyph, call.input.meta || null]
+            `INSERT INTO held_items (thread_id, text, glyph, meta, due_at, blocked_on) VALUES ($1,$2,$3,$4,$5,$6)`,
+            [threadId, call.input.text, call.input.glyph, call.input.meta || null, call.input.due_at || null, call.input.blocked_on || null]
           );
         }
       } else if (call.name === 'prepare_email_draft' || call.name === 'prepare_calendar_event') {

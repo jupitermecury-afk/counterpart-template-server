@@ -63,6 +63,11 @@ CREATE TABLE IF NOT EXISTS web_held_items (
 );
 CREATE INDEX IF NOT EXISTS idx_web_held_thread ON web_held_items(thread_id);
 
+-- Same due_at/blocked_on addition as held_items (see 001_init.sql) — lets the model track real
+-- time pressure and dependency on a held item instead of just a flat status.
+ALTER TABLE web_held_items ADD COLUMN IF NOT EXISTS due_at TIMESTAMPTZ;
+ALTER TABLE web_held_items ADD COLUMN IF NOT EXISTS blocked_on TEXT;
+
 CREATE TABLE IF NOT EXISTS web_verification_items (
   id          SERIAL PRIMARY KEY,
   thread_id   INTEGER NOT NULL REFERENCES web_threads(id) ON DELETE CASCADE,

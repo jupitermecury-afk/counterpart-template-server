@@ -41,6 +41,11 @@ CREATE TABLE IF NOT EXISTS held_items (
 );
 CREATE INDEX IF NOT EXISTS idx_held_thread ON held_items(thread_id);
 
+-- Lets the model track real time pressure and dependency on a held item, instead of just a
+-- flat status — when it's actually due, and what it's actually waiting on.
+ALTER TABLE held_items ADD COLUMN IF NOT EXISTS due_at TIMESTAMPTZ;
+ALTER TABLE held_items ADD COLUMN IF NOT EXISTS blocked_on TEXT;
+
 CREATE TABLE IF NOT EXISTS verification_items (
   id          SERIAL PRIMARY KEY,
   thread_id   INTEGER NOT NULL REFERENCES threads(id) ON DELETE CASCADE,

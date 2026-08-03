@@ -264,6 +264,8 @@ button{font-family:inherit}
 .step-text{flex:1}
 .step-text.done-text{text-decoration:line-through;opacity:0.45}
 .step-tag{font-size:10px;font-style:italic;color:var(--cream-dim);margin-left:4px}
+.step-due,.step-blocked{font-size:10.5px;color:var(--cream-dim);display:inline-block;margin-top:2px}
+.step-due-overdue{color:var(--red-err);font-weight:600}
 .step-del{opacity:0;background:none;border:none;color:var(--cream-dim);cursor:pointer;font-size:13px;padding:0 2px}
 .step-item:hover .step-del{opacity:1}
 .step-del:hover{color:var(--red-err)}
@@ -812,8 +814,17 @@ function renderSteps(){
     }
     return `<li class="step-item">
       <div class="step-check glyph-only ${done?"done":""}" style="background:${done?"var(--ember)":"transparent"};border-color:var(--ember)"></div>
-      <span class="step-text">${esc(h.text)}<span class="step-tag">— from Counterpart</span></span></li>`;
+      <span class="step-text">${esc(h.text)}<span class="step-tag">— from Counterpart</span>${stepMeta(h)}</span></li>`;
   }).join("");
+}
+function stepMeta(h){
+  const bits=[];
+  if(h.due_at){
+    const d=new Date(h.due_at); const overdue=d.getTime()<Date.now();
+    bits.push(`<span class="step-due${overdue?" step-due-overdue":""}">due ${d.toLocaleDateString(undefined,{month:"short",day:"numeric"})}</span>`);
+  }
+  if(h.blocked_on) bits.push(`<span class="step-blocked">blocked on ${esc(h.blocked_on)}</span>`);
+  return bits.length ? `<br>${bits.join(" · ")}` : "";
 }
 
 /* ════════ DOCUMENTS (person + model, via web_artifacts) ════════ */
