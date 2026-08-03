@@ -415,6 +415,11 @@ router.post('/threads/:id/messages', asyncRoute(async (req, res) => {
           `INSERT INTO web_verification_items (thread_id, claim_text) VALUES ($1, $2)`,
           [threadId, call.input.claim_text]
         );
+      } else if (call.name === 'resolve_verification') {
+        await pool.query(
+          `UPDATE web_verification_items SET status = $1, updated_at = now() WHERE thread_id = $2 AND claim_text = $3`,
+          [call.input.status, threadId, call.input.claim_text]
+        );
       } else if (call.name === 'update_held_thread') {
         const existing = await pool.query(
           `SELECT id FROM web_held_items WHERE thread_id = $1 AND text = $2 AND source = 'model'`,
