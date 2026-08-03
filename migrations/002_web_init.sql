@@ -39,6 +39,12 @@ CREATE TABLE IF NOT EXISTS web_threads (
 );
 CREATE INDEX IF NOT EXISTS idx_web_threads_key ON web_threads(access_key_id);
 
+-- Same rolling standing summary as mobile's threads table — see maybeCompact() in
+-- routes/webapi.js. Lets a long-running situation stay coherent without resending its
+-- entire history every request.
+ALTER TABLE web_threads ADD COLUMN IF NOT EXISTS compacted_summary TEXT;
+ALTER TABLE web_threads ADD COLUMN IF NOT EXISTS compacted_through_id INTEGER NOT NULL DEFAULT 0;
+
 CREATE TABLE IF NOT EXISTS web_turns (
   id                SERIAL PRIMARY KEY,
   thread_id         INTEGER NOT NULL REFERENCES web_threads(id) ON DELETE CASCADE,

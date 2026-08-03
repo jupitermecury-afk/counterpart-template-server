@@ -21,6 +21,11 @@ CREATE TABLE IF NOT EXISTS threads (
 );
 CREATE INDEX IF NOT EXISTS idx_threads_key ON threads(access_key_id);
 
+-- Rolling standing summary that lets a long-running situation stay coherent without
+-- resending its entire history every request. See maybeCompact() in routes/api.js.
+ALTER TABLE threads ADD COLUMN IF NOT EXISTS compacted_summary TEXT;
+ALTER TABLE threads ADD COLUMN IF NOT EXISTS compacted_through_id INTEGER NOT NULL DEFAULT 0;
+
 CREATE TABLE IF NOT EXISTS turns (
   id                SERIAL PRIMARY KEY,
   thread_id         INTEGER NOT NULL REFERENCES threads(id) ON DELETE CASCADE,

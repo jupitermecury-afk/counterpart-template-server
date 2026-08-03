@@ -177,6 +177,54 @@ async function buildExtraContext(accessKeyId, threadContext) {
   return extra;
 }
 
+// ── Context compaction ────────────────────────────────────────────────────────
+// Every request rebuilds message history from web_turns, so a situation left running
+// long would otherwise resend its ENTIRE history every time — the longest, most
+// important problems would be the first to break. Rather than adopting Anthropic's
+// native compaction (which expects the caller to persist and replay opaque content
+// blocks across an ongoing in-memory conversation — a poor fit here, since each request
+// rebuilds messages fresh from Postgres), this folds older turns into a plain-text
+// standing summary (inspectable, DB-friendly) once the uncovered tail grows past
+// COMPACT_THRESHOLD_CHARS, and only ever resends the last KEEP_RECENT_TURNS raw.
+const COMPACT_THRESHOLD_CHARS = 60000;
+const KEEP_RECENT_TURNS = 10;
+
+async function maybeCompact(threadId, allTurns, existingSummary, coveredThroughId) {
+  const uncovered = allTurns.filter(t => t.id > coveredThroughId);
+  const totalChars = uncovered.reduce((n, t) => n + t.content.length, 0);
+  if (totalChars <= COMPACT_THRESHOLD_CHARS || uncovered.length <= KEEP_RECENT_TURNS) {
+    return { summary: existingSummary, recentTurns: uncovered };
+  }
+  const toFold = uncovered.slice(0, -KEEP_RECENT_TURNS);
+  const recentTurns = uncovered.slice(-KEEP_RECENT_TURNS);
+  const convo = toFold.map(t => `${t.role}: ${t.content}`).join('\n');
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: 1200,
+        system: 'You maintain a standing summary of an ongoing situation for a counterpart AI to use as context on every future turn. Preserve concrete facts — names, dates, deadlines, decisions made, what has been tried, what is still open — in plain prose. No headers, no commentary about the summarising itself.',
+        messages: [{
+          role: 'user',
+          content: `Existing standing summary (empty if none yet):\n${existingSummary || '(none yet)'}\n\nAdditional turns that happened since, to fold in:\n${convo}\n\nWrite the complete updated standing summary, folding the new turns into the existing one. Keep everything still relevant; you may drop detail that has since been resolved or superseded.`,
+        }],
+      }),
+    });
+    const d = await r.json();
+    const summary = d.content?.filter(b => b.type === 'text').map(b => b.text).join('') || existingSummary;
+    await pool.query(
+      `UPDATE web_threads SET compacted_summary = $1, compacted_through_id = $2 WHERE id = $3`,
+      [summary, toFold[toFold.length - 1].id, threadId]
+    );
+    return { summary, recentTurns };
+  } catch (err) {
+    console.error('[webapi] compaction error, proceeding uncompacted:', err);
+    return { summary: existingSummary, recentTurns: uncovered };
+  }
+}
+
 // ── Threads (situations) ─────────────────────────────────────────────────────
 router.get('/threads/active', asyncRoute(async (req, res) => {
   const result = await pool.query(
@@ -275,12 +323,16 @@ router.post('/threads/:id/messages', asyncRoute(async (req, res) => {
   );
 
   const [priorTurns, threadRow] = await Promise.all([
-    pool.query(`SELECT role, content, attachment_label FROM web_turns WHERE thread_id = $1 ORDER BY id ASC`, [threadId]),
-    pool.query(`SELECT context FROM web_threads WHERE id = $1`, [threadId]),
+    pool.query(`SELECT id, role, content, attachment_label FROM web_turns WHERE thread_id = $1 ORDER BY id ASC`, [threadId]),
+    pool.query(`SELECT context, compacted_summary, compacted_through_id FROM web_threads WHERE id = $1`, [threadId]),
   ]);
 
+  const { summary, recentTurns } = await maybeCompact(
+    threadId, priorTurns.rows, threadRow.rows[0]?.compacted_summary || '', threadRow.rows[0]?.compacted_through_id || 0
+  );
+
   const messages = [];
-  for (const t of priorTurns.rows) {
+  for (const t of recentTurns) {
     const role = t.role === 'person' ? 'user' : 'assistant';
     const label = t.attachment_label ? `[${t.attachment_label}] ` : '';
     messages.push({ role, content: `${label}${t.content}` });
@@ -296,7 +348,10 @@ router.post('/threads/:id/messages', asyncRoute(async (req, res) => {
     messages[messages.length - 1] = { role: 'user', content: blocks };
   }
 
-  const extraSystemContext = await buildExtraContext(req.accessKeyId, threadRow.rows[0]?.context || '');
+  let extraSystemContext = await buildExtraContext(req.accessKeyId, threadRow.rows[0]?.context || '');
+  if (summary) {
+    extraSystemContext += `\n\nSTANDING SUMMARY OF THIS SITUATION SO FAR (everything before the recent messages has been condensed into this — treat it as established, not something to re-derive or ask about again):\n${summary}`;
+  }
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
