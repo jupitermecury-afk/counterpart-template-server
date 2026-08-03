@@ -248,6 +248,14 @@ router.post('/push/register', asyncRoute(async (req, res) => {
   res.json({ ok: true });
 }));
 
+// TEMPORARY — manually trigger the deadline-nudge sweep for testing, instead of waiting
+// for the 30-minute cron. Remove once verified.
+router.post('/debug/run-deadline-sweep', asyncRoute(async (req, res) => {
+  const { runDeadlineNudgeSweep } = require('../lib/pushNudge');
+  await runDeadlineNudgeSweep();
+  res.json({ ok: true });
+}));
+
 // Live ground truth for what's actually held/unconfirmed right now — queried fresh on
 // every turn, independent of conversation history or the compacted summary. Without this,
 // the model's sense of the problem's state depends entirely on what it said in past turns

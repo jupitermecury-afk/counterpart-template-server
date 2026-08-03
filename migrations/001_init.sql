@@ -51,6 +51,12 @@ CREATE INDEX IF NOT EXISTS idx_held_thread ON held_items(thread_id);
 ALTER TABLE held_items ADD COLUMN IF NOT EXISTS due_at TIMESTAMPTZ;
 ALTER TABLE held_items ADD COLUMN IF NOT EXISTS blocked_on TEXT;
 
+-- Tracks when THIS item was last nudged about specifically for its deadline — separate
+-- from threads.last_nudged_at (the generic quiet-time presence nudge), so a real deadline
+-- isn't throttled by an unrelated cooldown on the thread. See runDeadlineNudgeSweep()
+-- in lib/pushNudge.js.
+ALTER TABLE held_items ADD COLUMN IF NOT EXISTS nudged_at TIMESTAMPTZ;
+
 CREATE TABLE IF NOT EXISTS verification_items (
   id          SERIAL PRIMARY KEY,
   thread_id   INTEGER NOT NULL REFERENCES threads(id) ON DELETE CASCADE,
