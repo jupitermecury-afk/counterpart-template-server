@@ -183,6 +183,19 @@ async function buildExtraContext(accessKeyId, threadContext) {
 // (now sometimes lossy-compressed), which risks drifting from what the person actually
 // sees on the Steps/Verification panes, and risks near-duplicate held items when the model
 // paraphrases something it already holds instead of matching the exact stored text.
+// due_at is inert without the model knowing what "today" actually is — it has no reliable
+// built-in sense of the current date, so without this it can't tell overdue from imminent
+// from comfortably future. Hand-formatted (no Intl dependency) to avoid any ICU-availability
+// risk on the deployed runtime.
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+function todayContextLine() {
+  const now = new Date();
+  const iso = now.toISOString().slice(0, 10);
+  const human = `${WEEKDAYS[now.getUTCDay()]}, ${MONTHS[now.getUTCMonth()]} ${now.getUTCDate()}, ${now.getUTCFullYear()}`;
+  return `\n\nTODAY'S DATE: ${iso} UTC (${human}). Use this to judge whether a due_at is overdue, imminent, or comfortably in the future.`;
+}
+
 async function buildGroundTruthContext(threadId) {
   const [held, verif] = await Promise.all([
     pool.query(`SELECT text, glyph, due_at, blocked_on FROM web_held_items WHERE thread_id = $1 ORDER BY id ASC`, [threadId]),
@@ -376,7 +389,8 @@ router.post('/threads/:id/messages', asyncRoute(async (req, res) => {
     messages[messages.length - 1] = { role: 'user', content: blocks };
   }
 
-  let extraSystemContext = await buildExtraContext(req.accessKeyId, threadRow.rows[0]?.context || '');
+  let extraSystemContext = todayContextLine();
+  extraSystemContext += await buildExtraContext(req.accessKeyId, threadRow.rows[0]?.context || '');
   extraSystemContext += await buildGroundTruthContext(threadId);
   if (summary) {
     extraSystemContext += `\n\nSTANDING SUMMARY OF THIS SITUATION SO FAR (everything before the recent messages has been condensed into this — treat it as established, not something to re-derive or ask about again):\n${summary}`;
