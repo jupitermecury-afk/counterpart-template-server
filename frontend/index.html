@@ -190,6 +190,8 @@ button{font-family:inherit}
 .chip-act svg{width:11px;height:11px;fill:currentColor}
 .confidence-flag{display:inline-flex;align-items:center;gap:5px;margin-top:6px;font-size:10px;letter-spacing:0.05em;color:var(--ember-warm);background:var(--ember-dim);border-radius:5px;padding:3px 9px}
 .confidence-flag svg{width:10px;height:10px;fill:var(--ember-warm)}
+.doc-ready-flag{display:inline-flex;align-items:center;gap:5px;margin-top:6px;margin-right:6px;font-size:10px;letter-spacing:0.05em;color:var(--green-ok);background:var(--green-dim);border-radius:5px;padding:3px 9px}
+.doc-ready-flag svg{width:10px;height:10px;fill:var(--green-ok)}
 .cp-waiting{display:flex;gap:12px;align-items:flex-start;margin-bottom:1.75rem}
 .waiting-dots{display:flex;gap:5px;padding-top:9px}
 .wd{width:5px;height:5px;border-radius:50%;background:var(--ember);animation:wdp 1.6s ease-in-out infinite;opacity:0.3}
@@ -691,8 +693,10 @@ function appendCpMsg(text, flaggedCount=0, scroll=true){
   if(scroll!==false) scrollDown();
   return div;
 }
-function finishCpExtras(extras, text, flaggedCount){
+function finishCpExtras(extras, text, flaggedCount, docCount){
   let ex="";
+  if(docCount>0) ex+=`<div class="doc-ready-flag" onclick="openWorkspaceTo('docs')" style="cursor:pointer">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>${docCount} document${docCount>1?"s":""} ready — open documents</div>`;
   if(flaggedCount>0) ex+=`<div class="confidence-flag" onclick="openWorkspaceTo('verification')" style="cursor:pointer">
       <svg viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>${flaggedCount} claim${flaggedCount>1?"s":""} flagged — open verification</div>`;
   ex+=`<div class="msg-actions">
@@ -761,7 +765,8 @@ async function streamReply(response){
   document.getElementById("feed").appendChild(div); scrollDown();
   const bubble=div.querySelector(".msg-cp-bubble"), extras=div.querySelector(".msg-extras");
 
-  let fullText="", flaggedCount=0;
+  let fullText="", flaggedCount=0, docCount=0;
+  const DOC_TOOLS=new Set(["surface_artifact","prepare_email_draft","prepare_calendar_event"]);
   const reader=response.body.getReader(); const decoder=new TextDecoder(); let buf="";
   while(true){
     const {done,value}=await reader.read(); if(done)break;
@@ -777,13 +782,14 @@ async function streamReply(response){
         scrollDownSoft();
       } else if(evt.type==="tool"){
         if(evt.name==="flag_verification") flaggedCount++;
+        else if(DOC_TOOLS.has(evt.name)) docCount++;
       } else if(evt.type==="error"){
         fullText = fullText || "Something went wrong on my end. Try again in a moment — I am still here.";
       }
     }
   }
   bubble.innerHTML=formatText(fullText);
-  finishCpExtras(extras, fullText, flaggedCount);
+  finishCpExtras(extras, fullText, flaggedCount, docCount);
   if(ttsEnabled) speak(fullText);
   scrollDown();
   await refreshActiveThread();
