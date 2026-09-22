@@ -14,6 +14,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Open+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.min.js"></script>
 <style>
 :root{
   --earth:#ffffff; --earth-mid:#eef1f5; --earth-light:#e2e8f0; --earth-lift:#f7f9fb; --earth-deep:#f3f5f8;
@@ -180,6 +182,39 @@ button{font-family:inherit}
 .msg-cp-bubble ul,.msg-cp-bubble ol{margin:0.3em 0 0.8em 1.3em}
 .msg-cp-bubble li{margin-bottom:0.3em}
 .msg-cp-bubble code{background:var(--earth-deep);border:1px solid var(--cream-faint);border-radius:3px;padding:1px 5px;font-size:12px;color:var(--ember-pale)}
+.msg-cp-bubble h1{font-family:'Montserrat',sans-serif;font-size:24px;color:var(--cream);font-weight:700;margin:0.7em 0 0.4em}
+.msg-cp-bubble h2{font-family:'Montserrat',sans-serif;font-size:21px;color:var(--cream);font-weight:600;margin:0.65em 0 0.4em}
+.msg-cp-bubble h1:first-child,.msg-cp-bubble h2:first-child,.msg-cp-bubble h3:first-child{margin-top:0}
+.msg-cp-bubble hr{border:none;border-top:1px solid var(--cream-faint);margin:1em 0}
+.msg-cp-bubble a{color:var(--ember-warm);text-decoration:underline}
+.msg-cp-bubble blockquote{border-left:3px solid var(--cream-faint);padding-left:12px;margin:0.6em 0;color:var(--cream-dim);font-style:italic}
+.msg-cp-bubble table{border-collapse:collapse;width:100%;margin:0.6em 0 1em;font-size:0.92em}
+.msg-cp-bubble th{text-align:left;font-weight:600;color:var(--cream);border-bottom:2px solid var(--cream-faint);padding:6px 10px}
+.msg-cp-bubble td{border-bottom:1px solid var(--cream-faint);padding:6px 10px;vertical-align:top}
+.msg-cp-bubble li:has(>input[type="checkbox"]){list-style:none;margin-left:-1.3em}
+.msg-cp-bubble input[type="checkbox"]{margin-right:6px;accent-color:var(--ember)}
+/* Documents tab — read-only render of a model-authored artifact; mirrors .msg-cp-bubble */
+.doc-rendered{font-size:13px;font-weight:400;color:var(--cream-mid);line-height:1.8;word-wrap:break-word;padding:12px}
+.doc-rendered p{margin-bottom:0.75em}
+.doc-rendered p:last-child{margin-bottom:0}
+.doc-rendered strong{color:var(--cream);font-weight:600}
+.doc-rendered em{color:var(--ember-pale);font-style:italic}
+.doc-rendered h1,.doc-rendered h2,.doc-rendered h3{font-family:'Montserrat',sans-serif;color:var(--cream);font-weight:600;margin:0.6em 0 0.4em}
+.doc-rendered h1{font-size:20px;font-weight:700}
+.doc-rendered h2{font-size:17px}
+.doc-rendered h3{font-size:15px}
+.doc-rendered h1:first-child,.doc-rendered h2:first-child,.doc-rendered h3:first-child{margin-top:0}
+.doc-rendered ul,.doc-rendered ol{margin:0.3em 0 0.8em 1.3em}
+.doc-rendered li{margin-bottom:0.3em}
+.doc-rendered code{background:var(--earth-mid);border:1px solid var(--cream-faint);border-radius:3px;padding:1px 5px;font-size:11.5px;color:var(--ember-pale)}
+.doc-rendered hr{border:none;border-top:1px solid var(--cream-faint);margin:1em 0}
+.doc-rendered a{color:var(--ember-warm);text-decoration:underline}
+.doc-rendered blockquote{border-left:3px solid var(--cream-faint);padding-left:12px;margin:0.6em 0;color:var(--cream-dim);font-style:italic}
+.doc-rendered table{border-collapse:collapse;width:100%;margin:0.6em 0 1em;font-size:0.92em}
+.doc-rendered th{text-align:left;font-weight:600;color:var(--cream);border-bottom:2px solid var(--cream-faint);padding:5px 8px}
+.doc-rendered td{border-bottom:1px solid var(--cream-faint);padding:5px 8px;vertical-align:top}
+.doc-rendered li:has(>input[type="checkbox"]){list-style:none;margin-left:-1.3em}
+.doc-rendered input[type="checkbox"]{margin-right:6px;accent-color:var(--ember)}
 .msg-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
 .chip-act{
   display:inline-flex;align-items:center;gap:5px;font-size:10px;letter-spacing:0.05em;color:var(--cream-dim);
@@ -866,7 +901,9 @@ function renderDocs(){
         ${kindLabel?`<span class="doc-card-kind">${esc(kindLabel)}</span>`:""}
         <span class="doc-card-title">${esc(d.title)}</span><span class="doc-card-toggle">▶</span></div>
       <div class="doc-card-body">
-        <textarea class="doc-edit" ${isPerson?`oninput="updateDoc(${d.id},this.value)"`:"disabled"}>${esc(bodyOf(d))}</textarea>
+        ${isPerson
+          ? `<textarea class="doc-edit" oninput="updateDoc(${d.id},this.value)">${esc(bodyOf(d))}</textarea>`
+          : `<div class="doc-rendered">${formatText(bodyOf(d))}</div>`}
         <div class="doc-card-actions">
           ${isPerson?`<button class="doc-mini" onclick="renameDoc(${d.id})">Rename</button>`:""}
           <button class="doc-mini" onclick="copyDoc(${d.id})">Copy</button>
@@ -887,7 +924,25 @@ function renameDoc(id){
 }
 function copyDoc(id){ const d=getDoc(id); if(d) navigator.clipboard.writeText(bodyOf(d)).then(()=>toast("Document copied")); }
 function downloadDoc(id){ const d=getDoc(id); if(d) download(`${(d.title||"document").replace(/[^\w]+/g,"_")}.txt`, bodyOf(d)); }
-function printDoc(id){ const d=getDoc(id); if(!d)return; const w=window.open("","_blank"); w.document.write(`<title>${esc(d.title)}</title><body style="font-family:Georgia,serif;max-width:640px;margin:40px auto;line-height:1.7;white-space:pre-wrap;color:#1a1a1a">${esc(bodyOf(d))}</body>`); w.document.close(); w.focus(); setTimeout(()=>w.print(),250); }
+function printDoc(id){
+  const d=getDoc(id); if(!d)return;
+  const w=window.open("","_blank");
+  w.document.write(`<title>${esc(d.title)}</title>
+    <style>
+      body{font-family:Georgia,serif;max-width:680px;margin:40px auto;line-height:1.7;color:#1a1a1a;padding:0 20px}
+      h1,h2,h3{font-family:Georgia,serif;margin:0.9em 0 0.4em}
+      h1:first-child,h2:first-child,h3:first-child{margin-top:0}
+      p{margin-bottom:0.9em} strong{font-weight:700} em{font-style:italic}
+      ul,ol{margin:0.3em 0 0.9em 1.4em} li{margin-bottom:0.35em}
+      table{border-collapse:collapse;width:100%;margin:0.7em 0 1.1em}
+      th,td{border:1px solid #ccc;padding:6px 10px;text-align:left;vertical-align:top}
+      th{background:#f3f3f3} hr{border:none;border-top:1px solid #ccc;margin:1.2em 0}
+      blockquote{border-left:3px solid #ccc;padding-left:14px;margin:0.7em 0;color:#444}
+      code{background:#f3f3f3;border:1px solid #ddd;border-radius:3px;padding:1px 5px}
+    </style>
+    <body>${formatText(bodyOf(d))}</body>`);
+  w.document.close(); w.focus(); setTimeout(()=>w.print(),250);
+}
 async function deleteDoc(id){ await apiDelete(`/artifacts/${id}`); await refreshActiveThread(); }
 
 /* ════════ VERIFICATION ════════ */
@@ -1013,18 +1068,14 @@ function mkBtn(label,cls,fn){ const b=document.createElement("button"); b.classN
 /* ════════ UTIL ════════ */
 function esc(t){ return (t||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 function escAttr(t){ return esc(t).replace(/"/g,"&quot;").replace(/\n/g,"&#10;"); }
+// Real GFM markdown (tables, task lists, links, all heading levels, rules, nested lists) —
+// replaces an earlier hand-rolled regex converter that silently dropped most of what the
+// model actually writes (tables and checkboxes especially, both common in real documents).
+// DOMPurify sanitizes the result since marked passes raw HTML through by default, and this
+// text can originate from model output that itself echoes person-supplied content.
 function formatText(t){
-  let h=esc(t);
-  h=h.replace(/^###\s*(.+)$/gm,"<h3>$1</h3>").replace(/^##\s*(.+)$/gm,"<h3>$1</h3>");
-  h=h.replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>").replace(/(^|[^*])\*([^*]+?)\*/g,"$1<em>$2</em>");
-  h=h.replace(/`([^`]+?)`/g,"<code>$1</code>");
-  return h.split(/\n\n+/).map(p=>{
-    if(/^\s*(\d+\.|[-•])\s/.test(p)){
-      const ol=/^\s*\d+\./.test(p); const items=p.split(/\n/).filter(l=>l.trim()).map(l=>`<li>${l.replace(/^\s*(\d+\.|[-•])\s*/,"")}</li>`).join("");
-      return `<${ol?"ol":"ul"}>${items}</${ol?"ol":"ul"}>`;
-    }
-    return `<p>${p.replace(/\n/g,"<br>")}</p>`;
-  }).join("");
+  try{ return DOMPurify.sanitize(marked.parse(t||"")); }
+  catch(e){ return `<p>${esc(t||"")}</p>`; }
 }
 function download(name,text){ const b=new Blob([text],{type:"text/plain;charset=utf-8"}); const u=URL.createObjectURL(b); const a=document.createElement("a"); a.href=u; a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(u),1000); }
 
