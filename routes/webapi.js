@@ -12,7 +12,6 @@ const path = require('path');
 const rateLimit = require('express-rate-limit');
 const { pool } = require('../db');
 const { streamCounterpartReply } = require('../lib/claude');
-const { markdownToDocxBuffer } = require('../lib/markdownToDocx');
 
 const router = express.Router();
 const MODEL = 'claude-sonnet-4-6';
@@ -562,34 +561,6 @@ router.delete('/artifacts/:id', asyncRoute(async (req, res) => {
   );
   if (!result.rows[0]) return res.status(404).json({ error: 'not found' });
   res.json({ ok: true });
-}));
-
-// Mirrors the frontend's bodyOf() — same per-kind formatting, server-side, for export.
-function artifactBody(a) {
-  const c = a.content_json || {};
-  if (a.kind === 'prepare_email_draft') return `To: ${c.to || '(unspecified)'}\nSubject: ${c.subject || ''}\n\n${c.body || ''}`;
-  if (a.kind === 'prepare_calendar_event') {
-    return `${c.title || ''}\n${c.start_iso || ''}${c.end_iso ? ' – ' + c.end_iso : ''}${c.location ? '\nLocation: ' + c.location : ''}${c.notes ? '\n\n' + c.notes : ''}`;
-  }
-  return c.body_markdown ?? c.body ?? '';
-}
-
-// Real per-artifact download, any source — read-only, no source restriction like the write
-// endpoints above. Works for model-authored artifacts too (the common case people actually
-// want a real file for).
-router.get('/artifacts/:id/export.docx', asyncRoute(async (req, res) => {
-  const result = await pool.query(
-    `SELECT a.* FROM web_artifacts a JOIN web_threads t ON t.id = a.thread_id
-     WHERE a.id = $1 AND t.access_key_id = $2`,
-    [+req.params.id, req.accessKeyId]
-  );
-  const artifact = result.rows[0];
-  if (!artifact) return res.status(404).json({ error: 'not found' });
-  const buffer = await markdownToDocxBuffer(artifact.title, artifactBody(artifact));
-  const filename = `${(artifact.title || 'document').replace(/[^\w]+/g, '_')}.docx`;
-  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-  res.send(buffer);
 }));
 
 // ── Person-authored steps ────────────────────────────────────────────────────
