@@ -21,7 +21,11 @@ const MODEL = 'claude-sonnet-4-6';
 // plus a full document reliably burned through the old 1800-token 'standard' ceiling before the
 // document even started. 'standard' is also the frontend's default depth, so this was the
 // common case, not an edge case. 'brief' is untouched — it's an explicit "keep it short" choice.
-const DEPTH_TOKENS = { brief: 800, standard: 4000, deep: 8000 };
+// First bump (1800/3600 -> 4000/8000) was insufficient on its own for a genuinely demanding
+// multi-section document (real transcript: FIVE consecutive complete failures on the same
+// roadmap request); raised further alongside a prompt-level fix (lib/claude.js) that stops the
+// model from re-searching the same fact and re-writing fresh preamble on every retry.
+const DEPTH_TOKENS = { brief: 800, standard: 6000, deep: 12000 };
 
 function hashKey(key) {
   return crypto.createHash('sha256').update(key).digest('hex');
