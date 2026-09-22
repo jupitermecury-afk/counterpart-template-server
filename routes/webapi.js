@@ -209,7 +209,7 @@ function todayContextLine() {
 async function buildGroundTruthContext(threadId) {
   const [held, verif] = await Promise.all([
     pool.query(`SELECT text, glyph, due_at, blocked_on FROM web_held_items WHERE thread_id = $1 ORDER BY id ASC`, [threadId]),
-    pool.query(`SELECT claim_text, status FROM web_verification_items WHERE thread_id = $1 AND status != 'confirmed' ORDER BY id ASC`, [threadId]),
+    pool.query(`SELECT claim_text, status, confirm_via FROM web_verification_items WHERE thread_id = $1 AND status != 'confirmed' ORDER BY id ASC`, [threadId]),
   ]);
   let block = '';
   if (held.rows.length) {
@@ -222,8 +222,8 @@ async function buildGroundTruthContext(threadId) {
     }).join('\n');
   }
   if (verif.rows.length) {
-    block += `\n\nCURRENT VERIFICATION REGISTER (claims still not confirmed):\n`;
-    block += verif.rows.map(v => `- [${v.status}] ${v.claim_text}`).join('\n');
+    block += `\n\nCURRENT VERIFICATION REGISTER (claims still not confirmed; match exact claim_text via resolve_verification once you learn the real answer):\n`;
+    block += verif.rows.map(v => `- [${v.status}] ${v.claim_text}${v.confirm_via ? ` (confirm via: ${v.confirm_via})` : ''}`).join('\n');
   }
   return block;
 }
@@ -436,8 +436,8 @@ router.post('/threads/:id/messages', asyncRoute(async (req, res) => {
         );
       } else if (call.name === 'flag_verification') {
         await pool.query(
-          `INSERT INTO web_verification_items (thread_id, claim_text) VALUES ($1, $2)`,
-          [threadId, call.input.claim_text]
+          `INSERT INTO web_verification_items (thread_id, claim_text, confirm_via) VALUES ($1, $2, $3)`,
+          [threadId, call.input.claim_text, call.input.confirm_via || null]
         );
       } else if (call.name === 'resolve_verification') {
         await pool.query(

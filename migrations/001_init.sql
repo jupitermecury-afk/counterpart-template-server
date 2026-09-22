@@ -68,6 +68,11 @@ CREATE TABLE IF NOT EXISTS verification_items (
 );
 CREATE INDEX IF NOT EXISTS idx_verif_thread ON verification_items(thread_id);
 
+-- What would actually resolve this claim (e.g. "check the county assessor's site",
+-- "call the insurer") — the register used to hold only the claim itself, with nowhere
+-- to record how it could be checked.
+ALTER TABLE verification_items ADD COLUMN IF NOT EXISTS confirm_via TEXT;
+
 CREATE TABLE IF NOT EXISTS artifacts (
   id            SERIAL PRIMARY KEY,
   thread_id     INTEGER NOT NULL REFERENCES threads(id) ON DELETE CASCADE,

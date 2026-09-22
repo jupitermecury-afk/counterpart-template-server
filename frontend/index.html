@@ -335,6 +335,7 @@ button{font-family:inherit}
 .verif-dot{flex-shrink:0;width:9px;height:9px;border-radius:50%;background:var(--ember);margin-top:5px}
 .verif-dot.ok{background:var(--green-ok)}
 .verif-text{flex:1;font-size:12.5px;color:var(--cream);line-height:1.6}
+.verif-confirm-via{font-size:11px;color:var(--cream-dim);font-style:italic;margin-top:2px}
 .verif-status{font-size:10px;font-style:italic;color:var(--cream-dim);white-space:nowrap;margin-top:2px}
 
 /* ════ TOAST / MODAL ════ */
@@ -958,7 +959,7 @@ function renderVerification(){
     const idx=VERIF_CYCLE.indexOf(v.status); const next=VERIF_CYCLE[(idx+1)%VERIF_CYCLE.length];
     return `<div class="verif-chip" onclick="cycleVerification(${v.id},'${next}')">
       <div class="verif-dot ${v.status==="confirmed"?"ok":""}"></div>
-      <div class="verif-text">${esc(v.claim_text)}</div>
+      <div class="verif-text">${esc(v.claim_text)}${v.confirm_via?`<div class="verif-confirm-via">confirm via: ${esc(v.confirm_via)}</div>`:""}</div>
       <div class="verif-status">${VERIF_LABEL[v.status]}</div>
     </div>`;
   }).join("");

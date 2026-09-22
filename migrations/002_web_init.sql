@@ -85,6 +85,9 @@ CREATE TABLE IF NOT EXISTS web_verification_items (
 );
 CREATE INDEX IF NOT EXISTS idx_web_verif_thread ON web_verification_items(thread_id);
 
+-- Same confirm_via addition as verification_items (see 001_init.sql).
+ALTER TABLE web_verification_items ADD COLUMN IF NOT EXISTS confirm_via TEXT;
+
 -- source: same model/person split as web_held_items — "Documents" today are freeform
 -- user notes as well as counterpart-drafted artifacts. sent_at mirrors the mobile
 -- app's send-tracking for prepare_email_draft artifacts (web has no send-for-real
