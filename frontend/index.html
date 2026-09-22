@@ -907,7 +907,8 @@ function renderDocs(){
         <div class="doc-card-actions">
           ${isPerson?`<button class="doc-mini" onclick="renameDoc(${d.id})">Rename</button>`:""}
           <button class="doc-mini" onclick="copyDoc(${d.id})">Copy</button>
-          <button class="doc-mini" onclick="downloadDoc(${d.id})">Download</button>
+          <button class="doc-mini" onclick="downloadDoc(${d.id})">Download .txt</button>
+          <button class="doc-mini" onclick="downloadDocx(${d.id})">Download .docx</button>
           <button class="doc-mini" onclick="printDoc(${d.id})">Print / PDF</button>
           ${isPerson?`<button class="doc-mini del" onclick="deleteDoc(${d.id})">Delete</button>`:""}
         </div></div></div>`;
@@ -924,6 +925,20 @@ function renameDoc(id){
 }
 function copyDoc(id){ const d=getDoc(id); if(d) navigator.clipboard.writeText(bodyOf(d)).then(()=>toast("Document copied")); }
 function downloadDoc(id){ const d=getDoc(id); if(d) download(`${(d.title||"document").replace(/[^\w]+/g,"_")}.txt`, bodyOf(d)); }
+async function downloadDocx(id){
+  toast("Preparing .docx…");
+  try{
+    const r=await fetch(`${SERVER}/webapi/artifacts/${id}/export.docx`,{headers:authHeaders()});
+    if(!r.ok) throw new Error("export failed");
+    const blob=await r.blob();
+    const cd=r.headers.get("Content-Disposition")||"";
+    const m=cd.match(/filename="([^"]+)"/);
+    const name=m?m[1]:"document.docx";
+    const u=URL.createObjectURL(blob);
+    const a=document.createElement("a"); a.href=u; a.download=name; a.click();
+    setTimeout(()=>URL.revokeObjectURL(u),1000);
+  }catch(e){ toast("Couldn't prepare the .docx — try again"); }
+}
 function printDoc(id){
   const d=getDoc(id); if(!d)return;
   const w=window.open("","_blank");
