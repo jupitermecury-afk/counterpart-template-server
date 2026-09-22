@@ -15,7 +15,13 @@ const { streamCounterpartReply } = require('../lib/claude');
 
 const router = express.Router();
 const MODEL = 'claude-sonnet-4-6';
-const DEPTH_TOKENS = { brief: 800, standard: 1800, deep: 3600 };
+// standard/deep raised substantially (2026-09-22, real bug): a single turn's budget covers
+// BOTH the model's conversational prose AND a full-fidelity document's entire content in the
+// same response — a request needing real context-gathering (e.g. a live exchange-rate lookup)
+// plus a full document reliably burned through the old 1800-token 'standard' ceiling before the
+// document even started. 'standard' is also the frontend's default depth, so this was the
+// common case, not an edge case. 'brief' is untouched — it's an explicit "keep it short" choice.
+const DEPTH_TOKENS = { brief: 800, standard: 4000, deep: 8000 };
 
 function hashKey(key) {
   return crypto.createHash('sha256').update(key).digest('hex');
