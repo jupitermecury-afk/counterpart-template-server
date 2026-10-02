@@ -11,9 +11,36 @@ const fs = require('fs');
 const path = require('path');
 const rateLimit = require('express-rate-limit');
 const { pool } = require('../db');
-const { streamCounterpartReply } = require('../lib/claude');
+const { streamCounterpartReply, fileIdsFromServerBlock, fetchGeneratedFile, deleteGeneratedFile } = require('../lib/claude');
 
 const router = express.Router();
+
+const MAX_GENERATED_FILE_BYTES = 15 * 1024 * 1024;
+
+// Appended for the web app only — the mobile app has no place to show a generated file yet,
+// so it must not be told to make one.
+const FILE_OUTPUT_CONTEXT = `\n\nREAL FILES: When the person asks for an actual file — a Word document (.docx), PDF, spreadsheet, or presentation — build it with your code execution tool (python-docx, openpyxl, python-pptx, and reportlab/pypdf are available) and save it in the working directory under a clear filename. Every file you save appears in their Documents as a downloadable file, so say in your reply what you made. Use surface_artifact instead for drafts and plans they will read or edit inside the app.`;
+
+async function persistGeneratedFiles(threadId, fileIds, send) {
+  for (const fileId of fileIds) {
+    try {
+      const f = await fetchGeneratedFile(fileId, MAX_GENERATED_FILE_BYTES);
+      const art = await pool.query(
+        `INSERT INTO web_artifacts (thread_id, title, kind, fidelity, content_json, source)
+         VALUES ($1,$2,'file','full',$3,'model') RETURNING id`,
+        [threadId, f.filename, JSON.stringify({ filename: f.filename, mime_type: f.mimeType, size_bytes: f.data.length })]
+      );
+      await pool.query(
+        `INSERT INTO web_files (artifact_id, filename, mime_type, size_bytes, data) VALUES ($1,$2,$3,$4,$5)`,
+        [art.rows[0].id, f.filename, f.mimeType, f.data.length, f.data]
+      );
+      send({ type: 'file', artifact_id: art.rows[0].id, filename: f.filename });
+      deleteGeneratedFile(fileId);
+    } catch (err) {
+      console.error('[webapi] could not save generated file', fileId, err.message);
+    }
+  }
+}
 const MODEL = 'claude-sonnet-4-6';
 // standard/deep raised substantially (2026-09-22, real bug): a single turn's budget covers
 // BOTH the model's conversational prose AND a full-fidelity document's entire content in the
@@ -399,7 +426,7 @@ router.post('/threads/:id/messages', asyncRoute(async (req, res) => {
     messages[messages.length - 1] = { role: 'user', content: blocks };
   }
 
-  let extraSystemContext = todayContextLine();
+  let extraSystemContext = todayContextLine() + FILE_OUTPUT_CONTEXT;
   extraSystemContext += await buildExtraContext(req.accessKeyId, threadRow.rows[0]?.context || '');
   extraSystemContext += await buildGroundTruthContext(threadId);
   if (summary) {
@@ -413,6 +440,8 @@ router.post('/threads/:id/messages', asyncRoute(async (req, res) => {
 
   const send = (obj) => res.write(`data: ${JSON.stringify(obj)}\n\n`);
 
+  const generatedFileIds = new Set();
+
   try {
     const { fullText, toolCalls } = await streamCounterpartReply({
       model: MODEL,
@@ -421,6 +450,7 @@ router.post('/threads/:id/messages', asyncRoute(async (req, res) => {
       extraSystemContext,
       onText: (delta) => send({ type: 'text', delta }),
       onTool: (call) => send({ type: 'tool', name: call.name, input: call.input }),
+      onServerToolEvent: (block) => fileIdsFromServerBlock(block).forEach(id => generatedFileIds.add(id)),
     });
 
     await pool.query(
@@ -467,6 +497,8 @@ router.post('/threads/:id/messages', asyncRoute(async (req, res) => {
         );
       }
     }
+
+    await persistGeneratedFiles(threadId, [...generatedFileIds], send);
 
     await pool.query(`UPDATE web_threads SET updated_at = now() WHERE id = $1`, [threadId]);
 
@@ -534,6 +566,23 @@ router.post('/threads/:id/artifacts', asyncRoute(async (req, res) => {
     [threadId, title || 'Untitled document', JSON.stringify({ body_markdown })]
   );
   res.json({ artifact: result.rows[0] });
+}));
+
+router.get('/files/:artifactId', asyncRoute(async (req, res) => {
+  const result = await pool.query(
+    `SELECT f.filename, f.mime_type, f.data FROM web_files f
+     JOIN web_artifacts a ON a.id = f.artifact_id
+     JOIN web_threads t ON t.id = a.thread_id
+     WHERE a.id = $1 AND t.access_key_id = $2`,
+    [+req.params.artifactId, req.accessKeyId]
+  );
+  const f = result.rows[0];
+  if (!f) return res.status(404).json({ error: 'not found' });
+  const safeName = f.filename.replace(/[^\w.\- ]+/g, '_');
+  res.setHeader('Content-Type', f.mime_type);
+  res.setHeader('Content-Disposition', `attachment; filename="${safeName}"`);
+  res.setHeader('Content-Length', f.data.length);
+  res.end(f.data);
 }));
 
 router.patch('/artifacts/:id', asyncRoute(async (req, res) => {

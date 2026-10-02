@@ -105,3 +105,17 @@ CREATE TABLE IF NOT EXISTS web_artifacts (
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_web_artifacts_thread ON web_artifacts(thread_id);
+
+-- Real files the model produced in the code-execution sandbox (.docx, .pdf, ...). Bytes live
+-- here, not in web_artifacts.content_json, so loading a thread never drags file data along.
+-- Cascades with the artifact row that describes the file.
+CREATE TABLE IF NOT EXISTS web_files (
+  id           SERIAL PRIMARY KEY,
+  artifact_id  INTEGER NOT NULL REFERENCES web_artifacts(id) ON DELETE CASCADE,
+  filename     TEXT NOT NULL,
+  mime_type    TEXT NOT NULL,
+  size_bytes   INTEGER NOT NULL,
+  data         BYTEA NOT NULL,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_web_files_artifact ON web_files(artifact_id);

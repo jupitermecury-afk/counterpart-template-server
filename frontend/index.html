@@ -636,7 +636,7 @@ async function exportSituation(id){
   if(full.thread.context) md+=`> Context: ${full.thread.context}\n\n`;
   full.turns.forEach(t=>{ md+=`**${t.role==="person"?"You":"Counterpart"}:**\n\n${t.content}\n\n---\n\n`; });
   if(full.held.length){ md+=`## Steps\n\n`; full.held.forEach(h=>md+=`- [${h.glyph==="done"?"x":" "}] ${h.text}\n`); md+="\n"; }
-  full.artifacts.forEach(a=>{ md+=`## ${a.title}\n\n${bodyOf(a)}\n\n`; });
+  full.artifacts.forEach(a=>{ md+= a.kind==="file" ? `## ${a.title}\n\n(file: ${a.title} — download it from Documents)\n\n` : `## ${a.title}\n\n${bodyOf(a)}\n\n`; });
   download(`${(full.thread.title||"situation").replace(/[^\w]+/g,"_")}.md`, md);
 }
 function timeAgo(iso){
@@ -819,6 +819,8 @@ async function streamReply(response){
       } else if(evt.type==="tool"){
         if(evt.name==="flag_verification") flaggedCount++;
         else if(DOC_TOOLS.has(evt.name)) docCount++;
+      } else if(evt.type==="file"){
+        docCount++;
       } else if(evt.type==="error"){
         fullText = fullText || "Something went wrong on my end. Try again in a moment — I am still here.";
       }
@@ -895,6 +897,19 @@ function renderDocs(){
   empty.style.display="none";
   wrap.innerHTML=docs.map(d=>{
     const isPerson=d.source==="person";
+    if(d.kind==="file"){
+      const c=d.content_json||{};
+      const size=c.size_bytes>=1048576?(c.size_bytes/1048576).toFixed(1)+" MB":Math.max(1,Math.round((c.size_bytes||0)/1024))+" KB";
+      return `<div class="doc-card" id="dc-${d.id}">
+        <div class="doc-card-head" style="cursor:default">
+          <svg class="doc-ic" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+          <span class="doc-card-kind">file</span>
+          <span class="doc-card-title">${esc(d.title)}</span>
+          <span class="doc-card-kind" style="margin:0">${esc(size)}</span></div>
+        <div class="doc-card-actions" style="border-top:1px solid var(--cream-faint)">
+          <button class="doc-mini" onclick="downloadFile(${d.id})">Download</button>
+        </div></div>`;
+    }
     const kindLabel = d.kind==="prepare_email_draft"?"email":d.kind==="prepare_calendar_event"?"calendar":d.kind==="document"?"":d.kind;
     return `<div class="doc-card" id="dc-${d.id}">
       <div class="doc-card-head" onclick="document.getElementById('dc-${d.id}').classList.toggle('open')">
@@ -913,6 +928,16 @@ function renderDocs(){
           ${isPerson?`<button class="doc-mini del" onclick="deleteDoc(${d.id})">Delete</button>`:""}
         </div></div></div>`;
   }).join("");
+}
+async function downloadFile(id){
+  const d=getDoc(id); if(!d)return;
+  try{
+    const r=await fetch(`${SERVER}/webapi/files/${id}`,{headers:{"x-counterpart-key":currentKey}});
+    if(!r.ok) throw new Error("download failed");
+    const url=URL.createObjectURL(await r.blob());
+    const a=document.createElement("a"); a.href=url; a.download=(d.content_json&&d.content_json.filename)||d.title||"file";
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }catch(e){ toast("Could not download that file"); }
 }
 let docSaveTimer=null;
 function updateDoc(id,v){
