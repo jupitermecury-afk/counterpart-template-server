@@ -42,6 +42,9 @@ async function persistGeneratedFiles(threadId, fileIds, send) {
   }
 }
 const MODEL = 'claude-sonnet-4-6';
+// Plain text-in/text-out background jobs (standing-summary compaction, quick summary) run on a
+// cheaper model; the conversation itself stays on MODEL. Quality-checked: kept 18/18 planted facts.
+const SIDE_MODEL = 'claude-haiku-4-5';
 // standard/deep raised substantially (2026-09-22, real bug): a single turn's budget covers
 // BOTH the model's conversational prose AND a full-fidelity document's entire content in the
 // same response — a request needing real context-gathering (e.g. a live exchange-rate lookup)
@@ -264,7 +267,7 @@ async function maybeCompact(threadId, allTurns, existingSummary, coveredThroughI
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
-        model: MODEL,
+        model: SIDE_MODEL,
         max_tokens: 1200,
         system: 'You maintain a standing summary of an ongoing situation for a counterpart AI to use as context on every future turn. Preserve concrete facts — names, dates, deadlines, decisions made, what has been tried, what is still open — in plain prose. No headers, no commentary about the summarising itself.',
         messages: [{
@@ -507,7 +510,7 @@ router.post('/threads/:id/summarise', asyncRoute(async (req, res) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
-        model: MODEL,
+        model: SIDE_MODEL,
         max_tokens: 400,
         system: 'You summarise conversations in plain language.',
         messages: [{ role: 'user', content: `In three to five sentences, summarise this: what the person is dealing with, what has been decided or drafted, and what the next action is. Be concrete and plain.\n\n${convo}` }],

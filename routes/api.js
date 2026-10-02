@@ -7,6 +7,9 @@ const { sendRealEmail, isMailerConfigured } = require('../lib/mailer');
 
 const router = express.Router();
 const MODEL = 'claude-sonnet-4-6';
+// Plain text-in/text-out background jobs (standing-summary compaction, quick summary) run on a
+// cheaper model; the conversation itself stays on MODEL. Quality-checked: kept 18/18 planted facts.
+const SIDE_MODEL = 'claude-haiku-4-5';
 
 function hashKey(key) {
   return crypto.createHash('sha256').update(key).digest('hex');
@@ -334,7 +337,7 @@ async function maybeCompact(threadId, allTurns, existingSummary, coveredThroughI
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
-        model: MODEL,
+        model: SIDE_MODEL,
         max_tokens: 1200,
         system: 'You maintain a standing summary of an ongoing situation for a counterpart AI to use as context on every future turn. Preserve concrete facts — names, dates, deadlines, decisions made, what has been tried, what is still open — in plain prose. No headers, no commentary about the summarising itself.',
         messages: [{
