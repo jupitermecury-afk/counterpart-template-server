@@ -26,6 +26,21 @@ const allowedOrigins = (process.env.ALLOWED_ORIGIN || '')
 app.use(cors(allowedOrigins.length ? { origin: allowedOrigins } : {}));
 app.use(express.json());
 
+// ── RESPONSE HARDENING ───────────────────────────────────────────────────────
+// No framework fingerprint, no MIME sniffing (matters for the downloadable files), no
+// referrer leakage, and — most important — never let a browser or proxy cache a person's
+// situations, documents or files. Done by hand rather than adding a dependency.
+app.disable('x-powered-by');
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Strict-Transport-Security', 'max-age=15552000');
+  if (req.path.startsWith('/api') || req.path.startsWith('/webapi')) {
+    res.setHeader('Cache-Control', 'no-store');
+  }
+  next();
+});
+
 // ── OPTIONAL SHARED SECRET ──────────────────────────────────────────────────
 // If you set CLIENT_SECRET in your environment, only requests carrying a
 // matching "X-Client-Secret" header will be served. Leave it unset to skip

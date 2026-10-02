@@ -248,6 +248,25 @@ router.post('/push/register', asyncRoute(async (req, res) => {
   res.json({ ok: true });
 }));
 
+// Called on sign-out so a phone stops receiving nudges for a key it no longer holds.
+router.delete('/push/register', asyncRoute(async (req, res) => {
+  const { expo_push_token } = req.body || {};
+  if (!expo_push_token) return res.status(400).json({ error: 'missing token' });
+  await pool.query(
+    `DELETE FROM push_tokens WHERE access_key_id = $1 AND expo_push_token = $2`,
+    [req.accessKeyId, expo_push_token]
+  );
+  res.json({ ok: true });
+}));
+
+// Person-triggered erasure. Every table hangs off access_keys with ON DELETE CASCADE
+// (threads, turns, held items, verification items, artifacts, push tokens), so removing the
+// key removes everything held for it, and the key itself stops working.
+router.delete('/me', asyncRoute(async (req, res) => {
+  await pool.query(`DELETE FROM access_keys WHERE id = $1`, [req.accessKeyId]);
+  res.json({ ok: true });
+}));
+
 // Live ground truth for what's actually held/unconfirmed right now — queried fresh on
 // every turn, independent of conversation history or the compacted summary. Without this,
 // the model's sense of the problem's state depends entirely on what it said in past turns
