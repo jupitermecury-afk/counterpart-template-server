@@ -199,12 +199,10 @@ if (process.env.DATABASE_URL) {
     .then(() => startPresenceNudges())
     .catch(err => console.error('[db] migration failed — /api routes will not work until this is fixed:', err));
 
-  // Independent try/catch chain from the mobile migrate() above — a failure seeding
-  // or migrating the web app's tables must never block the mobile app's boot, and
-  // vice versa.
+  // Independent try/catch chain from the mobile migrate() above — a failure migrating
+  // the web app's tables must never block the mobile app's boot, and vice versa.
   webapiRouter.migrateWeb()
-    .then(() => webapiRouter.seedDemoKeys())
-    .catch(err => console.error('[db] web migration/seed failed — /webapi routes will not work until this is fixed:', err));
+    .catch(err => console.error('[db] web migration failed — /webapi routes will not work until this is fixed:', err));
 } else {
   console.log('[db] DATABASE_URL not set — /api (mobile app) and /webapi (web app) routes will fail until it is configured');
 }

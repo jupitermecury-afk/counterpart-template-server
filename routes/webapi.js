@@ -118,23 +118,6 @@ async function migrateWeb() {
   console.log('[db] web migration applied');
 }
 
-async function seedDemoKeys() {
-  const DEMO_KEYS = [
-    { key: 'ESSENCE-2026', validFrom: '2026-06-01', validTo: '2027-06-01' },
-    { key: 'BAAFOUR-2026', validFrom: '2026-06-01', validTo: '2027-06-01' },
-    { key: 'BENJI-2026', validFrom: '2026-06-01', validTo: '2027-06-01' },
-    { key: 'EINSTJII-2026', validFrom: '2026-06-01', validTo: '2027-06-01' },
-  ];
-  for (const d of DEMO_KEYS) {
-    await pool.query(
-      `INSERT INTO web_access_keys (key_hash, label, valid_from, valid_until)
-       VALUES ($1, $2, $3, $4) ON CONFLICT (key_hash) DO NOTHING`,
-      [hashKey(d.key), d.key, d.validFrom, d.validTo]
-    );
-  }
-  console.log('[db] web demo keys seeded');
-}
-
 // ── Auth ──────────────────────────────────────────────────────────────────────
 router.post('/auth/verify', asyncRoute(async (req, res) => {
   const { key } = req.body || {};
@@ -770,4 +753,3 @@ router.patch('/org', asyncRoute(async (req, res) => {
 
 module.exports = router;
 module.exports.migrateWeb = migrateWeb;
-module.exports.seedDemoKeys = seedDemoKeys;

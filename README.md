@@ -150,11 +150,9 @@ That's it — your team can now visit that URL.
 
 ## 4. Managing access keys (your yearly "front-end license")
 
-`index.html` and `voice.html` ship with four built-in demo keys
-(`ESSENCE-2026`, `BAAFOUR-2026`, `BENJI-2026`, `EINSTJII-2026`), each valid
-**2026-06-01 through 2027-06-01**. These are defined near the top of each
-file in the `ACCESS_KEYS` array — edit the dates there to set your own
-renewal window, or remove keys you don't want active.
+No access keys live in the code or this repository. Keys are stored hashed in the
+`web_access_keys` table (web) and the mobile equivalent, and are issued through
+`operator.html` / `partner.html` or the admin endpoint. Never commit a working key.
 
 For issuing keys to multiple people/teams over time, use `operator.html`
 (per-seat keys) and `partner.html` (per-cohort keys with language/voice
