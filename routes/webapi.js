@@ -12,6 +12,8 @@ const path = require('path');
 const rateLimit = require('express-rate-limit');
 const { pool } = require('../db');
 const { loadBriefing, safeIso } = require('../lib/briefing');
+const { logDecision, decisionsContext, updateDecision, dismissProposal } = require('../lib/decisions');
+const DECISION_TABLES = { decisions: 'web_decisions', threads: 'web_threads' };
 const { streamCounterpartReply, fileIdsFromServerBlock, fetchGeneratedFile, deleteGeneratedFile } = require('../lib/claude');
 
 const router = express.Router();
@@ -160,12 +162,13 @@ router.use(asyncRoute(async (req, res, next) => {
 
 // ── Thread state assembly ────────────────────────────────────────────────────
 async function loadThreadState(threadId) {
-  const [thread, turns, held, verif, artifacts] = await Promise.all([
+  const [thread, turns, held, verif, artifacts, decisions] = await Promise.all([
     pool.query(`SELECT * FROM web_threads WHERE id = $1`, [threadId]),
     pool.query(`SELECT * FROM web_turns WHERE thread_id = $1 ORDER BY id ASC`, [threadId]),
     pool.query(`SELECT * FROM web_held_items WHERE thread_id = $1 ORDER BY id ASC`, [threadId]),
     pool.query(`SELECT * FROM web_verification_items WHERE thread_id = $1 ORDER BY id ASC`, [threadId]),
     pool.query(`SELECT * FROM web_artifacts WHERE thread_id = $1 ORDER BY id ASC`, [threadId]),
+    pool.query(`SELECT * FROM web_decisions WHERE thread_id = $1 ORDER BY id ASC`, [threadId]),
   ]);
   return {
     thread: thread.rows[0] || null,
@@ -173,6 +176,7 @@ async function loadThreadState(threadId) {
     held: held.rows,
     verification: verif.rows,
     artifacts: artifacts.rows,
+    decisions: decisions.rows,
   };
 }
 
@@ -245,6 +249,7 @@ async function buildGroundTruthContext(threadId) {
       return `- ${bits.join(' — ')}`;
     }).join('\n');
   }
+  block += await decisionsContext(pool, DECISION_TABLES, threadId);
   return block;
 }
 
@@ -452,6 +457,7 @@ router.post('/threads/:id/messages', asyncRoute(async (req, res) => {
       [threadId, fullText]
     );
 
+    const proposedDecisions = [];
     for (const call of toolCalls) {
       if (call.name === 'surface_artifact') {
         await pool.query(
@@ -484,6 +490,9 @@ router.post('/threads/:id/messages', asyncRoute(async (req, res) => {
             [threadId, call.input.text, call.input.glyph, call.input.meta || null, safeIso(call.input.due_at), call.input.blocked_on || null]
           );
         }
+      } else if (call.name === 'log_decision') {
+        const d = await logDecision(pool, DECISION_TABLES, threadId, call.input);
+        if (d) proposedDecisions.push(d);
       } else if (call.name === 'prepare_email_draft' || call.name === 'prepare_calendar_event') {
         await pool.query(
           `INSERT INTO web_artifacts (thread_id, title, kind, fidelity, content_json, source) VALUES ($1,$2,$3,'full',$4,'model')`,
@@ -493,6 +502,7 @@ router.post('/threads/:id/messages', asyncRoute(async (req, res) => {
     }
 
     await persistGeneratedFiles(threadId, [...generatedFileIds], send);
+    for (const d of proposedDecisions) send({ type: 'decision', decision: d });
 
     await pool.query(`UPDATE web_threads SET updated_at = now() WHERE id = $1`, [threadId]);
 
@@ -534,11 +544,26 @@ router.post('/threads/:id/summarise', asyncRoute(async (req, res) => {
   }
 }));
 
+// Confirm / edit / reverse a decision (the person's judgment; the counterpart can only propose).
+router.patch('/decisions/:id', asyncRoute(async (req, res) => {
+  const { status, decision, rationale } = req.body || {};
+  const r = await updateDecision(pool, DECISION_TABLES, +req.params.id, req.accessKeyId, { status, decision, rationale });
+  if (r.error) return res.status(r.status).json({ error: r.error });
+  res.json({ decision: r.row });
+}));
+
+// "That wasn't a decision" — removes a proposal that was never confirmed.
+router.delete('/decisions/:id', asyncRoute(async (req, res) => {
+  const ok = await dismissProposal(pool, DECISION_TABLES, +req.params.id, req.accessKeyId);
+  if (!ok) return res.status(404).json({ error: 'not found' });
+  res.json({ ok: true });
+}));
+
 // Where things stand in one situation: overdue, due soon, waiting on someone, not yet confirmed.
 router.get('/threads/:id/briefing', asyncRoute(async (req, res) => {
   const threadId = +req.params.id;
   if (!(await assertOwnedThread(threadId, req.accessKeyId))) return res.status(404).json({ error: 'not found' });
-  res.json(await loadBriefing(pool, { threads: 'web_threads', held: 'web_held_items', verification: 'web_verification_items' }, threadId));
+  res.json(await loadBriefing(pool, { threads: 'web_threads', held: 'web_held_items', verification: 'web_verification_items', decisions: 'web_decisions' }, threadId));
 }));
 
 // ── Verification holds ───────────────────────────────────────────────────────

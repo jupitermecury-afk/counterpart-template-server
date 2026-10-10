@@ -154,6 +154,7 @@ button{font-family:inherit}
 .noted{margin-top:10px;display:flex;flex-direction:column;gap:6px}
 .noted-item{font-size:11.5px;line-height:1.5;color:var(--cream-mid);border-left:2px solid var(--cream-faint);padding-left:9px}
 .noted-item.verify{border-left-color:#d9a441}
+.dec-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
 .noted-item b{font-weight:600;color:var(--cream);letter-spacing:0.05em;font-size:9.5px;text-transform:uppercase;margin-right:6px}
 @keyframes micPulse{0%,100%{box-shadow:0 0 0 0 rgba(200,112,96,0.45)}50%{box-shadow:0 0 0 18px rgba(200,112,96,0)}}
 .mic-status{font-size:12px;color:var(--cream-dim);letter-spacing:0.03em;min-height:1.2em;text-align:center;max-width:480px}
@@ -535,7 +536,7 @@ function beginCpMsg(){
 }
 // What the model recorded during this reply. Voice has no workspace, so show it right here —
 // the things it can't confirm and the steps it is holding — instead of leaving them invisible.
-function notedHTML(flags,steps){
+function notedHTML(flags,steps,decs){
   const rows=[];
   flags.forEach(f=>rows.push(`<div class="noted-item verify"><b>Confirm</b>${esc(f.claim_text||"")}${f.confirm_via?` — <i>${esc(f.confirm_via)}</i>`:""}</div>`));
   steps.forEach(s=>{
@@ -544,6 +545,7 @@ function notedHTML(flags,steps){
     if(s.blocked_on) bits.push("waiting on "+esc(s.blocked_on));
     rows.push(`<div class="noted-item"><b>Step</b>${bits.join(" · ")}</div>`);
   });
+  (decs||[]).forEach(d=>rows.push(`<div class="noted-item verify" id="dec-${d.id}"><b>Decision</b>${esc(d.decision||"")}${d.rationale?` — <i>${esc(d.rationale)}</i>`:""}<div class="dec-actions"><button class="chip-act" onclick="confirmVoiceDecision(${d.id})">Yes, that's the decision</button><button class="chip-act" onclick="dismissVoiceDecision(${d.id})">Not a decision</button></div></div>`));
   return rows.length ? `<div class="noted">${rows.join("")}</div>` : "";
 }
 function actionsHTML(text){
@@ -552,10 +554,20 @@ function actionsHTML(text){
         <button class="chip-act" onclick="copyText(this)" data-text="${escAttr(text)}"><svg viewBox="0 0 24 24"><path d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12V1zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11v14z"/></svg>Copy</button>
       </div>`;
 }
-function finishCpMsg(cp,text,flags,steps){
+function finishCpMsg(cp,text,flags,steps,decs){
   cp.bubble.innerHTML=formatText(text);
-  cp.extras.innerHTML=notedHTML(flags,steps)+actionsHTML(text);
+  cp.extras.innerHTML=notedHTML(flags,steps,decs||[])+actionsHTML(text);
   scrollDownSoft();
+}
+async function confirmVoiceDecision(id){
+  const el=document.getElementById("dec-"+id);
+  try{ await apiPatch(`/decisions/${id}`,{status:"live"}); if(el){ const a=el.querySelector(".dec-actions"); if(a) a.innerHTML="<i>Confirmed</i>"; } }
+  catch(e){ toast("Couldn't confirm that just now"); }
+}
+async function dismissVoiceDecision(id){
+  const el=document.getElementById("dec-"+id);
+  try{ await apiDelete(`/decisions/${id}`); if(el) el.remove(); }
+  catch(e){ toast("Couldn't remove that just now"); }
 }
 async function sendMessage(text){
   text=(text||"").trim();
@@ -569,7 +581,7 @@ async function sendMessage(text){
   reqAbort=new AbortController();
   const signal=reqAbort.signal;
   let cp=null, fullText="";
-  const flags=[], steps=[];
+  const flags=[], steps=[], decs=[];
   const FALLBACK="Something went wrong on my end. Try again in a moment — I am still here.";
   try{
     if(!activeThreadId){
@@ -598,6 +610,8 @@ async function sendMessage(text){
           cp.bubble.innerHTML=formatText(fullText)+'<span class="cursor-blink"></span>';
           feedSpeech(fullText,false);
           scrollDownSoft();
+        } else if(evt.type==="decision" && evt.decision){
+          decs.push(evt.decision);
         } else if(evt.type==="tool"){
           if(evt.name==="flag_verification") flags.push(evt.input||{});
           else if(evt.name==="update_held_thread") steps.push(evt.input||{});
@@ -606,18 +620,18 @@ async function sendMessage(text){
     }
     if(!fullText) fullText=FALLBACK;
     feedSpeech(fullText,true);
-    finishCpMsg(cp,fullText,flags,steps);
+    finishCpMsg(cp,fullText,flags,steps,decs);
   }catch(e){
     removeWaiting();
     if(e && e.name==="AbortError"){
       if(cp){
-        if(fullText) finishCpMsg(cp,fullText,flags,steps);
+        if(fullText) finishCpMsg(cp,fullText,flags,steps,decs);
         else { const m=cp.bubble.closest(".msg"); if(m) m.remove(); } // stopped before it said anything
       }
       return; // interruptReply()/endConversation() already reset the phase
     }
     const msg = cp ? FALLBACK : "I lost the connection. Check your internet and try again — I haven't gone anywhere.";
-    if(cp) finishCpMsg(cp,fullText||msg,flags,steps); else appendCpMsg(msg,false);
+    if(cp) finishCpMsg(cp,fullText||msg,flags,steps,decs); else appendCpMsg(msg,false);
     stopSpeaking(); spokenIdx=0; enqueueSpeech(fullText||msg);
   }
   streamDone=true;

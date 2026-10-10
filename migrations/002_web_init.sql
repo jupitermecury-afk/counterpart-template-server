@@ -123,3 +123,19 @@ CREATE TABLE IF NOT EXISTS web_files (
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_web_files_artifact ON web_files(artifact_id);
+
+-- Decisions: what the person has actually decided and why. The counterpart can only PROPOSE
+-- one; it becomes live when the person confirms it. made_by is never the counterpart.
+CREATE TABLE IF NOT EXISTS web_decisions (
+  id             SERIAL PRIMARY KEY,
+  thread_id      INTEGER NOT NULL REFERENCES web_threads(id) ON DELETE CASCADE,
+  decision       TEXT NOT NULL,
+  rationale      TEXT,
+  affects        TEXT[] NOT NULL DEFAULT '{}',
+  made_by        TEXT NOT NULL DEFAULT 'person' CHECK (made_by IN ('person','joint')),
+  status         TEXT NOT NULL DEFAULT 'proposed' CHECK (status IN ('proposed','live','superseded','reversed')),
+  superseded_by  INTEGER REFERENCES web_decisions(id) ON DELETE SET NULL,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_web_decisions_thread ON web_decisions(thread_id);

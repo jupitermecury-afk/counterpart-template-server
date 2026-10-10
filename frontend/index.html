@@ -339,6 +339,14 @@ button{font-family:inherit}
 .ctx-area:focus{border-color:var(--ember)}
 .ctx-save{margin-top:0.7rem;font-size:11px;color:var(--cream-dim);text-align:right}
 /* verification */
+.dec-card{border:1px solid var(--cream-faint);border-radius:9px;padding:11px 12px;margin-bottom:0.6rem;background:var(--earth-lift)}
+.dec-card.proposed{border-left:3px solid var(--ember)}
+.dec-card.past{opacity:0.6}
+.dec-text{font-size:13.5px;color:var(--cream);line-height:1.55}
+.dec-why{font-size:12px;color:var(--cream-mid);font-style:italic;margin-top:3px}
+.dec-state{font-size:9.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--cream-dim);margin-bottom:4px}
+.dec-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+.dec-actions .primary{border-color:var(--ember);color:var(--ember)}
 .verif-chip{display:flex;align-items:flex-start;gap:9px;padding:11px 12px;border:1px solid var(--cream-faint);border-radius:9px;margin-bottom:0.6rem;cursor:pointer;transition:all 0.18s}
 .verif-chip:hover{border-color:var(--ember)}
 .verif-dot{flex-shrink:0;width:9px;height:9px;border-radius:50%;background:var(--ember);margin-top:5px}
@@ -501,6 +509,7 @@ button{font-family:inherit}
     <div class="ws-tabs">
       <button class="ws-tab active" onclick="switchTab('steps')" id="tab-steps">Steps <span class="badge" id="badge-steps">0</span></button>
       <button class="ws-tab" onclick="switchTab('docs')" id="tab-docs">Documents <span class="badge" id="badge-docs">0</span></button>
+      <button class="ws-tab" onclick="switchTab('decisions')" id="tab-decisions">Decisions <span class="badge" id="badge-decisions">0</span></button>
       <button class="ws-tab" onclick="switchTab('verification')" id="tab-verification">Verify <span class="badge" id="badge-verification">0</span></button>
       <button class="ws-tab" onclick="switchTab('context')" id="tab-context">Context</button>
       <button class="icon-btn ws-close" onclick="toggleWorkspace()" title="Close"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
@@ -517,6 +526,11 @@ button{font-family:inherit}
       <div class="ws-pane" id="pane-docs">
         <div id="doc-list"></div>
         <div class="ws-empty" id="docs-empty">No documents yet. When the Counterpart drafts something real — a letter, a plan, a script — save it here to keep and edit it.</div>
+      </div>
+      <div class="ws-pane" id="pane-decisions">
+        <div class="ctx-desc">What you've decided, and why. The Counterpart proposes these when you commit to something; they only count once you confirm them.</div>
+        <div id="decisions-list"></div>
+        <div class="ws-empty" id="decisions-empty">No decisions recorded yet.</div>
       </div>
       <div class="ws-pane" id="pane-verification">
         <div class="ctx-desc">Claims the work rests on that the Counterpart can't personally confirm. Tap one to move it forward as you check it.</div>
@@ -616,6 +630,7 @@ function renderBriefing(b){
     ${group("soon","Coming up",b.due_soon,i=>` <small>${i.kind==="verify"?"needs confirming ":"due "}${when(i)}</small>`)}
     ${group("blocked","Waiting on",b.blocked,i=>` <small>— ${esc(i.blocked_on)}</small>`)}
     ${group("unconfirmed","Not yet confirmed",b.unconfirmed,i=>i.confirm_via?` <small>— ${esc(i.confirm_via)}</small>`:"")}
+    ${(b.proposed_decisions&&b.proposed_decisions.length)?group("decisions","Decisions to confirm",b.proposed_decisions,()=>"")+`<div class="briefing-group"><button class="doc-mini" onclick="openWorkspaceTo('decisions')">Review decisions</button></div>`:""}
   </div>`;
 }
 function renderActiveThread(){
@@ -636,7 +651,7 @@ function renderActiveThread(){
   document.getElementById("sit-title-edit").value = t.title || "";
   document.getElementById("ctx-area").value = t.context || "";
   document.getElementById("depth-select").value = depth;
-  renderSteps(); renderDocs(); renderVerification(); renderSitList();
+  renderSteps(); renderDocs(); renderDecisions(); renderVerification(); renderSitList();
   renderReopenBanner(); updateCloseInvite();
   scrollDown(false);
 }
@@ -644,7 +659,7 @@ async function refreshActiveThread(){
   if(!activeThread) return;
   const d=await apiGet(`/threads/${activeThread.thread.id}`);
   activeThread=d;
-  renderSteps(); renderDocs(); renderVerification(); renderSitList();
+  renderSteps(); renderDocs(); renderDecisions(); renderVerification(); renderSitList();
   renderReopenBanner(); updateCloseInvite();
 }
 async function renameActive(v){
@@ -769,8 +784,10 @@ function appendCpMsg(text, flaggedCount=0, scroll=true){
   if(scroll!==false) scrollDown();
   return div;
 }
-function finishCpExtras(extras, text, flaggedCount, docCount){
+function finishCpExtras(extras, text, flaggedCount, docCount, decisionCount){
   let ex="";
+  if(decisionCount>0) ex+=`<div class="doc-ready-flag" onclick="openWorkspaceTo('decisions')" style="cursor:pointer">
+      <svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>${decisionCount} decision${decisionCount>1?"s":""} proposed — review and confirm</div>`;
   if(docCount>0) ex+=`<div class="doc-ready-flag" onclick="openWorkspaceTo('docs')" style="cursor:pointer">
       <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>${docCount} document${docCount>1?"s":""} ready — open documents</div>`;
   if(flaggedCount>0) ex+=`<div class="confidence-flag" onclick="openWorkspaceTo('verification')" style="cursor:pointer">
@@ -842,7 +859,7 @@ async function streamReply(response){
   document.getElementById("feed").appendChild(div); scrollDown();
   const bubble=div.querySelector(".msg-cp-bubble"), extras=div.querySelector(".msg-extras");
 
-  let fullText="", flaggedCount=0, docCount=0;
+  let fullText="", flaggedCount=0, docCount=0, decisionCount=0;
   const DOC_TOOLS=new Set(["surface_artifact","prepare_email_draft","prepare_calendar_event"]);
   const reader=response.body.getReader(); const decoder=new TextDecoder(); let buf="";
   while(true){
@@ -860,6 +877,8 @@ async function streamReply(response){
       } else if(evt.type==="tool"){
         if(evt.name==="flag_verification") flaggedCount++;
         else if(DOC_TOOLS.has(evt.name)) docCount++;
+      } else if(evt.type==="decision"){
+        decisionCount++;
       } else if(evt.type==="file"){
         docCount++;
       } else if(evt.type==="error"){
@@ -868,7 +887,7 @@ async function streamReply(response){
     }
   }
   bubble.innerHTML=formatText(fullText);
-  finishCpExtras(extras, fullText, flaggedCount, docCount);
+  finishCpExtras(extras, fullText, flaggedCount, docCount, decisionCount);
   if(ttsEnabled) speak(fullText);
   scrollDown();
   await refreshActiveThread();
@@ -1012,6 +1031,45 @@ function printDoc(id){
 }
 async function deleteDoc(id){ await apiDelete(`/artifacts/${id}`); await refreshActiveThread(); }
 
+/* ════════ DECISIONS ════════ */
+function getDecisions(){ return activeThread && activeThread.decisions ? activeThread.decisions : []; }
+function renderDecisions(){
+  const items=getDecisions();
+  const pending=items.filter(d=>d.status==="proposed").length;
+  document.getElementById("badge-decisions").textContent=pending||items.filter(d=>d.status==="live").length;
+  const wrap=document.getElementById("decisions-list"), empty=document.getElementById("decisions-empty");
+  if(!items.length){ wrap.innerHTML=""; empty.style.display="block"; return; }
+  empty.style.display="none";
+  const order={proposed:0,live:1,reversed:2,superseded:3};
+  const sorted=[...items].sort((a,b)=>(order[a.status]-order[b.status])||(b.id-a.id));
+  const label={proposed:"Proposed — confirm to make it stand",live:"Decided",reversed:"Reversed",superseded:"Replaced by a later decision"};
+  wrap.innerHTML=sorted.map(d=>{
+    const past=d.status==="reversed"||d.status==="superseded";
+    const by=d.made_by==="joint"?" · decided together":"";
+    const acts = d.status==="proposed"
+      ? `<button class="doc-mini primary" onclick="confirmDecision(${d.id})">Confirm</button>
+         <button class="doc-mini" onclick="editDecision(${d.id})">Edit &amp; confirm</button>
+         <button class="doc-mini del" onclick="dismissDecision(${d.id})">Not a decision</button>`
+      : d.status==="live" ? `<button class="doc-mini" onclick="reverseDecision(${d.id})">Reverse</button>` : "";
+    return `<div class="dec-card ${d.status==="proposed"?"proposed":""} ${past?"past":""}">
+      <div class="dec-state">${esc(label[d.status]||d.status)}${by}</div>
+      <div class="dec-text">${esc(d.decision)}</div>
+      ${d.rationale?`<div class="dec-why">${esc(d.rationale)}</div>`:""}
+      ${acts?`<div class="dec-actions">${acts}</div>`:""}
+    </div>`;
+  }).join("");
+}
+async function confirmDecision(id){ try{ await apiPatch(`/decisions/${id}`,{status:"live"}); await refreshActiveThread(); loadBriefing(activeThread.thread.id); }catch(e){ toast("Couldn't confirm that just now"); } }
+async function reverseDecision(id){ try{ await apiPatch(`/decisions/${id}`,{status:"reversed"}); await refreshActiveThread(); }catch(e){ toast("Couldn't reverse that just now"); } }
+async function dismissDecision(id){ try{ await apiDelete(`/decisions/${id}`); await refreshActiveThread(); loadBriefing(activeThread.thread.id); }catch(e){ toast("Couldn't remove that just now"); } }
+function editDecision(id){
+  const d=getDecisions().find(x=>x.id===id); if(!d) return;
+  promptModal("Edit this decision","State it the way you actually decided it.",d.decision,async v=>{
+    const text=(v||"").trim(); if(!text) return;
+    try{ await apiPatch(`/decisions/${id}`,{decision:text,status:"live"}); await refreshActiveThread(); loadBriefing(activeThread.thread.id); }catch(e){ toast("Couldn't save that just now"); }
+  });
+}
+
 /* ════════ VERIFICATION ════════ */
 const VERIF_CYCLE=["just_surfaced","person_confirming","counterpart_checking","proceeding_unconfirmed","confirmed"];
 const VERIF_LABEL={just_surfaced:"just surfaced",person_confirming:"you're confirming",counterpart_checking:"I'm checking",proceeding_unconfirmed:"proceeding, unconfirmed",confirmed:"confirmed"};
@@ -1093,7 +1151,7 @@ function toggleWorkspace(){ const ws=document.getElementById("workspace"); ws.cl
   if(window.innerWidth<=1024) document.getElementById("scrim").classList.toggle("on",!ws.classList.contains("hidden"));
   document.getElementById("ws-toggle-btn").classList.toggle("on",!ws.classList.contains("hidden")); }
 function openWorkspaceTo(tab){ document.getElementById("workspace").classList.remove("hidden"); if(window.innerWidth<=1024)document.getElementById("scrim").classList.add("on"); switchTab(tab); }
-function switchTab(t){ ["steps","docs","verification","context"].forEach(x=>{ document.getElementById("pane-"+x).classList.toggle("on",x===t); document.getElementById("tab-"+x).classList.toggle("active",x===t); }); }
+function switchTab(t){ ["steps","docs","decisions","verification","context"].forEach(x=>{ document.getElementById("pane-"+x).classList.toggle("on",x===t); document.getElementById("tab-"+x).classList.toggle("active",x===t); }); }
 function closeDrawers(){ document.getElementById("sidebar").classList.add("closed"); document.getElementById("workspace").classList.add("hidden"); document.getElementById("scrim").classList.remove("on"); }
 function setDepth(v){ depth=v; }
 function useStarter(el){ const inp=document.getElementById("msg-input"); inp.value=el.textContent; inp.focus(); autoResize(inp); }

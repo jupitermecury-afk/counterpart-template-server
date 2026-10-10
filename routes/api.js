@@ -3,6 +3,8 @@ const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
 const { pool } = require('../db');
 const { loadBriefing, safeIso } = require('../lib/briefing');
+const { logDecision, decisionsContext, updateDecision, dismissProposal } = require('../lib/decisions');
+const DECISION_TABLES = { decisions: 'decisions', threads: 'threads' };
 const { streamCounterpartReply } = require('../lib/claude');
 const { sendRealEmail, isMailerConfigured } = require('../lib/mailer');
 
@@ -104,12 +106,13 @@ router.use(asyncRoute(async (req, res, next) => {
 
 // ── Thread state assembly ────────────────────────────────────────────────────
 async function loadThreadState(threadId) {
-  const [thread, turns, held, verif, artifacts] = await Promise.all([
+  const [thread, turns, held, verif, artifacts, decisions] = await Promise.all([
     pool.query(`SELECT * FROM threads WHERE id = $1`, [threadId]),
     pool.query(`SELECT * FROM turns WHERE thread_id = $1 ORDER BY id ASC`, [threadId]),
     pool.query(`SELECT * FROM held_items WHERE thread_id = $1 ORDER BY id ASC`, [threadId]),
     pool.query(`SELECT * FROM verification_items WHERE thread_id = $1 ORDER BY id ASC`, [threadId]),
     pool.query(`SELECT * FROM artifacts WHERE thread_id = $1 ORDER BY id ASC`, [threadId]),
+    pool.query(`SELECT * FROM decisions WHERE thread_id = $1 ORDER BY id ASC`, [threadId]),
   ]);
   return {
     thread: thread.rows[0] || null,
@@ -117,6 +120,7 @@ async function loadThreadState(threadId) {
     held: held.rows,
     verification: verif.rows,
     artifacts: artifacts.rows,
+    decisions: decisions.rows,
   };
 }
 
@@ -253,11 +257,26 @@ router.post('/push/register', asyncRoute(async (req, res) => {
   res.json({ ok: true });
 }));
 
+// Confirm / edit / reverse a decision (the person's judgment; the counterpart can only propose).
+router.patch('/decisions/:id', asyncRoute(async (req, res) => {
+  const { status, decision, rationale } = req.body || {};
+  const r = await updateDecision(pool, DECISION_TABLES, +req.params.id, req.accessKeyId, { status, decision, rationale });
+  if (r.error) return res.status(r.status).json({ error: r.error });
+  res.json({ decision: r.row });
+}));
+
+// "That wasn't a decision" — removes a proposal that was never confirmed.
+router.delete('/decisions/:id', asyncRoute(async (req, res) => {
+  const ok = await dismissProposal(pool, DECISION_TABLES, +req.params.id, req.accessKeyId);
+  if (!ok) return res.status(404).json({ error: 'not found' });
+  res.json({ ok: true });
+}));
+
 // Where things stand in one situation: overdue, due soon, waiting on someone, not yet confirmed.
 router.get('/threads/:id/briefing', asyncRoute(async (req, res) => {
   const threadId = +req.params.id;
   if (!(await assertOwnedThread(threadId, req.accessKeyId))) return res.status(404).json({ error: 'not found' });
-  res.json(await loadBriefing(pool, { threads: 'threads', held: 'held_items', verification: 'verification_items' }, threadId));
+  res.json(await loadBriefing(pool, { threads: 'threads', held: 'held_items', verification: 'verification_items', decisions: 'decisions' }, threadId));
 }));
 
 // Called on sign-out so a phone stops receiving nudges for a key it no longer holds.
@@ -322,6 +341,7 @@ async function buildGroundTruthContext(threadId) {
       return `- ${bits.join(' — ')}`;
     }).join('\n');
   }
+  block += await decisionsContext(pool, DECISION_TABLES, threadId);
   return block;
 }
 
@@ -447,6 +467,7 @@ router.post('/threads/:id/messages', asyncRoute(async (req, res) => {
       [threadId, fullText]
     );
 
+    const proposedDecisions = [];
     for (const call of toolCalls) {
       if (call.name === 'surface_artifact') {
         await pool.query(
@@ -479,6 +500,9 @@ router.post('/threads/:id/messages', asyncRoute(async (req, res) => {
             [threadId, call.input.text, call.input.glyph, call.input.meta || null, safeIso(call.input.due_at), call.input.blocked_on || null]
           );
         }
+      } else if (call.name === 'log_decision') {
+        const d = await logDecision(pool, DECISION_TABLES, threadId, call.input);
+        if (d) proposedDecisions.push(d);
       } else if (call.name === 'prepare_email_draft' || call.name === 'prepare_calendar_event') {
         await pool.query(
           `INSERT INTO artifacts (thread_id, title, kind, fidelity, content_json) VALUES ($1,$2,$3,'full',$4)`,
@@ -487,6 +511,7 @@ router.post('/threads/:id/messages', asyncRoute(async (req, res) => {
       }
     }
 
+    for (const d of proposedDecisions) send({ type: 'decision', decision: d });
     await pool.query(`UPDATE threads SET updated_at = now() WHERE id = $1`, [threadId]);
 
     send({ type: 'done' });
