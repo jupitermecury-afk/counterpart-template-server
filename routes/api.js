@@ -2,6 +2,7 @@ const express = require('express');
 const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
 const { pool } = require('../db');
+const { loadBriefing, safeIso } = require('../lib/briefing');
 const { streamCounterpartReply } = require('../lib/claude');
 const { sendRealEmail, isMailerConfigured } = require('../lib/mailer');
 
@@ -9,7 +10,8 @@ const router = express.Router();
 const MODEL = 'claude-sonnet-4-6';
 // Plain text-in/text-out background jobs (standing-summary compaction, quick summary) run on a
 // cheaper model; the conversation itself stays on MODEL. Quality-checked: kept 18/18 planted facts.
-const SIDE_MODEL = 'claude-haiku-4-5';
+// Calls must send thinking disabled (Haiku 5.5 thinks by default and the tokens count against max_tokens).
+const SIDE_MODEL = 'claude-haiku-5-5';
 
 function hashKey(key) {
   return crypto.createHash('sha256').update(key).digest('hex');
@@ -251,6 +253,13 @@ router.post('/push/register', asyncRoute(async (req, res) => {
   res.json({ ok: true });
 }));
 
+// Where things stand in one situation: overdue, due soon, waiting on someone, not yet confirmed.
+router.get('/threads/:id/briefing', asyncRoute(async (req, res) => {
+  const threadId = +req.params.id;
+  if (!(await assertOwnedThread(threadId, req.accessKeyId))) return res.status(404).json({ error: 'not found' });
+  res.json(await loadBriefing(pool, { threads: 'threads', held: 'held_items', verification: 'verification_items' }, threadId));
+}));
+
 // Called on sign-out so a phone stops receiving nudges for a key it no longer holds.
 router.delete('/push/register', asyncRoute(async (req, res) => {
   const { expo_push_token } = req.body || {};
@@ -292,21 +301,26 @@ function todayContextLine() {
 async function buildGroundTruthContext(threadId) {
   const [held, verif] = await Promise.all([
     pool.query(`SELECT text, glyph, due_at, blocked_on FROM held_items WHERE thread_id = $1 ORDER BY id ASC`, [threadId]),
-    pool.query(`SELECT claim_text, status, confirm_via FROM verification_items WHERE thread_id = $1 AND status != 'confirmed' ORDER BY id ASC`, [threadId]),
+    pool.query(`SELECT claim_text, status, confirm_via, due_at FROM verification_items WHERE thread_id = $1 AND status != 'confirmed' ORDER BY id ASC`, [threadId]),
   ]);
   let block = '';
   if (held.rows.length) {
     block += `\n\nCURRENT HELD STATE FOR THIS SITUATION (ground truth right now — to update one of these via update_held_thread, use its exact text below so it updates in place instead of creating a near-duplicate):\n`;
     block += held.rows.map(h => {
       const bits = [`[${h.glyph}] ${h.text}`];
-      if (h.due_at) bits.push(`due ${new Date(h.due_at).toISOString().slice(0, 10)}`);
+      if (h.due_at) bits.push(`${new Date(h.due_at).getTime() < Date.now() && h.glyph !== 'done' ? 'OVERDUE, was due' : 'due'} ${new Date(h.due_at).toISOString().slice(0, 10)}`);
       if (h.blocked_on) bits.push(`blocked on: ${h.blocked_on}`);
       return `- ${bits.join(' — ')}`;
     }).join('\n');
   }
   if (verif.rows.length) {
     block += `\n\nCURRENT VERIFICATION REGISTER (claims still not confirmed; match exact claim_text via resolve_verification once you learn the real answer):\n`;
-    block += verif.rows.map(v => `- [${v.status}] ${v.claim_text}${v.confirm_via ? ` (confirm via: ${v.confirm_via})` : ''}`).join('\n');
+    block += verif.rows.map(v => {
+      const bits = [`[${v.status}] ${v.claim_text}`];
+      if (v.confirm_via) bits.push(`confirm via: ${v.confirm_via}`);
+      if (v.due_at) bits.push(`${new Date(v.due_at).getTime() < Date.now() ? 'OVERDUE, was due' : 'due'} ${new Date(v.due_at).toISOString().slice(0, 10)}`);
+      return `- ${bits.join(' — ')}`;
+    }).join('\n');
   }
   return block;
 }
@@ -338,6 +352,7 @@ async function maybeCompact(threadId, allTurns, existingSummary, coveredThroughI
       headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
         model: SIDE_MODEL,
+        thinking: { type: 'disabled' }, // Haiku 5.5 thinks by default; this is a plain text job and thinking eats max_tokens
         max_tokens: 1200,
         system: 'You maintain a standing summary of an ongoing situation for a counterpart AI to use as context on every future turn. Preserve concrete facts — names, dates, deadlines, decisions made, what has been tried, what is still open — in plain prose. No headers, no commentary about the summarising itself.',
         messages: [{
@@ -440,8 +455,8 @@ router.post('/threads/:id/messages', asyncRoute(async (req, res) => {
         );
       } else if (call.name === 'flag_verification') {
         await pool.query(
-          `INSERT INTO verification_items (thread_id, claim_text, confirm_via) VALUES ($1, $2, $3)`,
-          [threadId, call.input.claim_text, call.input.confirm_via || null]
+          `INSERT INTO verification_items (thread_id, claim_text, confirm_via, due_at) VALUES ($1, $2, $3, $4)`,
+          [threadId, call.input.claim_text, call.input.confirm_via || null, safeIso(call.input.due_at)]
         );
       } else if (call.name === 'resolve_verification') {
         await pool.query(
@@ -456,12 +471,12 @@ router.post('/threads/:id/messages', asyncRoute(async (req, res) => {
         if (existing.rows[0]) {
           await pool.query(
             `UPDATE held_items SET glyph = $1, meta = $2, due_at = $3, blocked_on = $4, updated_at = now() WHERE id = $5`,
-            [call.input.glyph, call.input.meta || null, call.input.due_at || null, call.input.blocked_on || null, existing.rows[0].id]
+            [call.input.glyph, call.input.meta || null, safeIso(call.input.due_at), call.input.blocked_on || null, existing.rows[0].id]
           );
         } else {
           await pool.query(
             `INSERT INTO held_items (thread_id, text, glyph, meta, due_at, blocked_on) VALUES ($1,$2,$3,$4,$5,$6)`,
-            [threadId, call.input.text, call.input.glyph, call.input.meta || null, call.input.due_at || null, call.input.blocked_on || null]
+            [threadId, call.input.text, call.input.glyph, call.input.meta || null, safeIso(call.input.due_at), call.input.blocked_on || null]
           );
         }
       } else if (call.name === 'prepare_email_draft' || call.name === 'prepare_calendar_event') {

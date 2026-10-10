@@ -73,6 +73,11 @@ CREATE INDEX IF NOT EXISTS idx_verif_thread ON verification_items(thread_id);
 -- to record how it could be checked.
 ALTER TABLE verification_items ADD COLUMN IF NOT EXISTS confirm_via TEXT;
 
+-- When this claim has to be resolved by, and when a deadline nudge was last sent for it
+-- (independent of the thread-level presence cooldown, same as held_items.nudged_at).
+ALTER TABLE verification_items ADD COLUMN IF NOT EXISTS due_at TIMESTAMPTZ;
+ALTER TABLE verification_items ADD COLUMN IF NOT EXISTS nudged_at TIMESTAMPTZ;
+
 CREATE TABLE IF NOT EXISTS artifacts (
   id            SERIAL PRIMARY KEY,
   thread_id     INTEGER NOT NULL REFERENCES threads(id) ON DELETE CASCADE,

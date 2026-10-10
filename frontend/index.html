@@ -144,6 +144,15 @@ button{font-family:inherit}
 /* ════ CONVERSATION ════ */
 .convo-scroll{flex:1;overflow-y:auto;scroll-behavior:smooth}
 .convo-inner{max-width:720px;margin:0 auto;padding:2rem 1.5rem 1rem}
+.briefing{border:1px solid var(--cream-faint);border-left:3px solid var(--ember);border-radius:10px;background:var(--earth-lift);padding:14px 16px;margin:0 0 1.2rem;position:relative}
+.briefing-head{font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--cream-dim);margin-bottom:4px}
+.briefing-line{font-size:15px;color:var(--cream);line-height:1.5;margin-bottom:8px}
+.briefing-group{margin-top:8px}
+.briefing-group h4{font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--cream-dim);margin:0 0 3px;font-weight:600}
+.briefing-group.overdue h4{color:var(--red-err,#c0392b)}
+.briefing-item{font-size:13px;color:var(--cream-mid);line-height:1.5;padding-left:10px;border-left:2px solid var(--cream-faint);margin-bottom:3px}
+.briefing-item small{color:var(--cream-dim);font-style:italic}
+.briefing-x{position:absolute;top:8px;right:10px;background:none;border:none;color:var(--cream-dim);cursor:pointer;font-size:16px;line-height:1}
 .reopen-banner{display:none;align-items:center;justify-content:space-between;gap:10px;background:var(--blue-dim);
   border:1px solid var(--blue-info);border-radius:9px;padding:10px 14px;margin-bottom:1.5rem;font-size:12.5px;color:var(--cream-mid)}
 .reopen-banner button{background:transparent;border:1px solid var(--blue-info);border-radius:7px;color:var(--blue-info);
@@ -455,6 +464,7 @@ button{font-family:inherit}
           </div>
         </div>
         <div class="chalk-line" id="chalk-line" style="display:none"></div>
+        <div id="briefing"></div>
         <div id="feed"></div>
         <div class="close-invite-wrap" id="close-invite-wrap">
           <button class="close-invite" onclick="openCloseFlow()">set this down…</button>
@@ -577,6 +587,36 @@ async function openSituation(id){
   const d=await apiGet(`/threads/${id}`);
   activeThread=d;
   renderActiveThread();
+  loadBriefing(id);
+}
+/* ════════ RETURN BRIEFING ════════ */
+function hideBriefing(){ const el=document.getElementById("briefing"); if(el) el.innerHTML=""; }
+async function loadBriefing(id){
+  hideBriefing();
+  try{
+    const b=await apiGet(`/threads/${id}/briefing`);
+    if(!activeThread || activeThread.thread.id!==id) return;   // moved on while it loaded
+    renderBriefing(b);
+  }catch(e){ /* a briefing is a courtesy; never block the situation */ }
+}
+function renderBriefing(b){
+  const el=document.getElementById("briefing"); if(!b||!b.show){ el.innerHTML=""; return; }
+  const when=(i)=>{
+    if(!i.due_at) return "";
+    const d=new Date(i.due_at).toISOString().slice(0,10);
+    return i.days===0 ? "today" : (new Date(i.due_at)<new Date() ? `${i.days} day${i.days===1?"":"s"} ago (${d})` : `in ${i.days} day${i.days===1?"":"s"} (${d})`);
+  };
+  const group=(cls,title,items,extra)=>!items.length?"":`<div class="briefing-group ${cls}"><h4>${title}</h4>${items.slice(0,4).map(i=>
+    `<div class="briefing-item">${esc(i.text)}${extra(i)}</div>`).join("")}${items.length>4?`<div class="briefing-item"><small>and ${items.length-4} more</small></div>`:""}</div>`;
+  const away=b.days_away>=2 ? `You've been away ${b.days_away} days. ` : "";
+  el.innerHTML=`<div class="briefing"><button class="briefing-x" onclick="hideBriefing()" aria-label="Dismiss">×</button>
+    <div class="briefing-head">Where things stand</div>
+    <div class="briefing-line">${esc(away)}${esc(b.headline)}</div>
+    ${group("overdue","Overdue",b.overdue,i=>` <small>${i.kind==="verify"?"needed ":"was due "}${when(i)}</small>`)}
+    ${group("soon","Coming up",b.due_soon,i=>` <small>${i.kind==="verify"?"needs confirming ":"due "}${when(i)}</small>`)}
+    ${group("blocked","Waiting on",b.blocked,i=>` <small>— ${esc(i.blocked_on)}</small>`)}
+    ${group("unconfirmed","Not yet confirmed",b.unconfirmed,i=>i.confirm_via?` <small>— ${esc(i.confirm_via)}</small>`:"")}
+  </div>`;
 }
 function renderActiveThread(){
   const t=activeThread.thread;
@@ -756,6 +796,7 @@ async function sendMessage(){
   const input=document.getElementById("msg-input");
   const text=input.value.trim();
   if(!text && !pendingFiles.length) return;
+  hideBriefing();
 
   busy=true;
   document.getElementById("send-btn").style.display="none";
@@ -984,7 +1025,7 @@ function renderVerification(){
     const idx=VERIF_CYCLE.indexOf(v.status); const next=VERIF_CYCLE[(idx+1)%VERIF_CYCLE.length];
     return `<div class="verif-chip" onclick="cycleVerification(${v.id},'${next}')">
       <div class="verif-dot ${v.status==="confirmed"?"ok":""}"></div>
-      <div class="verif-text">${esc(v.claim_text)}${v.confirm_via?`<div class="verif-confirm-via">confirm via: ${esc(v.confirm_via)}</div>`:""}</div>
+      <div class="verif-text">${esc(v.claim_text)}${v.confirm_via?`<div class="verif-confirm-via">confirm via: ${esc(v.confirm_via)}</div>`:""}${v.due_at&&v.status!=="confirmed"?`<div class="verif-confirm-via">${new Date(v.due_at)<new Date()?"overdue — needed by":"needed by"} ${new Date(v.due_at).toISOString().slice(0,10)}</div>`:""}</div>
       <div class="verif-status">${VERIF_LABEL[v.status]}</div>
     </div>`;
   }).join("");
