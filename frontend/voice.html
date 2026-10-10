@@ -146,7 +146,15 @@ button{font-family:inherit}
 .mic-big:active{transform:scale(0.96)}
 .mic-big svg{width:30px;height:30px;fill:var(--earth)}
 .mic-big.listening{background:var(--red-err);animation:micPulse 1.4s ease-in-out infinite}
-.mic-big.busy{opacity:0.4;cursor:not-allowed;animation:none}
+.mic-big.thinking{opacity:0.55;animation:none}
+.mic-big.speaking{background:var(--ember-warm);animation:speakPulse 1.6s ease-in-out infinite}
+@keyframes speakPulse{0%,100%{box-shadow:0 0 0 0 rgba(99,91,255,0.35)}50%{box-shadow:0 0 0 16px rgba(99,91,255,0)}}
+.mode-row{display:flex;gap:14px;align-items:center;justify-content:center;flex-wrap:wrap}
+.mode-switch.on{color:var(--ember);text-decoration-color:var(--ember)}
+.noted{margin-top:10px;display:flex;flex-direction:column;gap:6px}
+.noted-item{font-size:11.5px;line-height:1.5;color:var(--cream-mid);border-left:2px solid var(--cream-faint);padding-left:9px}
+.noted-item.verify{border-left-color:#d9a441}
+.noted-item b{font-weight:600;color:var(--cream);letter-spacing:0.05em;font-size:9.5px;text-transform:uppercase;margin-right:6px}
 @keyframes micPulse{0%,100%{box-shadow:0 0 0 0 rgba(200,112,96,0.45)}50%{box-shadow:0 0 0 18px rgba(200,112,96,0)}}
 .mic-status{font-size:12px;color:var(--cream-dim);letter-spacing:0.03em;min-height:1.2em;text-align:center;max-width:480px}
 .mode-switch{font-size:11px;color:var(--cream-dim);background:none;border:none;cursor:pointer;text-decoration:underline;text-decoration-color:var(--cream-dim);transition:color 0.2s;padding:4px}
@@ -244,7 +252,11 @@ button{font-family:inherit}
           <svg viewBox="0 0 24 24"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z"/><path d="M19 11a7 7 0 0 1-14 0H3a9 9 0 0 0 8 8.94V23h2v-3.06A9 9 0 0 0 21 11h-2z"/></svg>
         </button>
         <div class="mic-status" id="mic-status">Tap to speak</div>
-        <button class="mode-switch" onclick="setMode('text')">Type instead</button>
+        <div class="mode-row">
+          <button class="mode-switch" id="handsfree-btn" onclick="toggleHandsFree()">Hands-free: off</button>
+          <button class="mode-switch" id="end-convo" onclick="endConversation()" style="display:none">End conversation</button>
+          <button class="mode-switch" onclick="setMode('text')">Type instead</button>
+        </div>
       </div>
       <div class="text-zone" id="text-zone" style="display:none">
         <div class="input-inner">
@@ -275,14 +287,18 @@ button{font-family:inherit}
 const SERVER = "https://counterpart-template-server-production.up.railway.app";
 const VOICE_ACCESS_STORE = "cp_voice_access_v1";
 
+// exp: true = the model's writing and/or the browser's speech support in this language is not
+// reliable enough to present as a full option (tested 2026-10-02) — shown with a warning.
 const LANGS = [
-  { code:"en", label:"English", speech:"en-US" },
-  { code:"tw", label:"Twi",     speech:"ak-GH" },
-  { code:"ga", label:"Ga",      speech:"ga-GH" },
-  { code:"sw", label:"Swahili", speech:"sw-KE" },
-  { code:"sn", label:"Shona",   speech:"sn-ZW" },
-  { code:"es", label:"Spanish", speech:"es-ES" },
+  { code:"en", label:"English", name:"English", speech:"en-US" },
+  { code:"fr", label:"French",  name:"French",  speech:"fr-FR" },
+  { code:"tw", label:"Twi (experimental)",   name:"Twi",   speech:"ak-GH", exp:true },
+  { code:"ga", label:"Ga (experimental)",    name:"Ga",    speech:"ga-GH", exp:true },
+  { code:"sw", label:"Swahili", name:"Swahili", speech:"sw-KE" },
+  { code:"sn", label:"Shona (experimental)", name:"Shona", speech:"sn-ZW", exp:true },
+  { code:"es", label:"Spanish", name:"Spanish", speech:"es-ES" },
 ];
+function langName(){ const l=LANGS.find(x=>x.code===lang); return l?(l.name||l.label):"this language"; }
 
 /* ════════ SERVER ACCESS ════════ */
 function authHeaders(){ return {"Content-Type":"application/json","x-counterpart-key":currentKey}; }
@@ -300,7 +316,7 @@ function storeAccess(key){ try{ localStorage.setItem(VOICE_ACCESS_STORE,key); }c
 let currentKey="";
 let activeThreadId=null;
 let lang="en", mode="voice", ttsEnabled=true;
-let busy=false, recognition=null, isRecording=false;
+let recognition=null;
 
 function NS(suffix){ return `cpv_${suffix}_v1__${currentKey}`; }
 function loadPrefs(){
@@ -308,14 +324,9 @@ function loadPrefs(){
     const p=JSON.parse(localStorage.getItem(NS("prefs"))||"null");
     if(p) return p;
   }catch(e){}
-  return { lang:"en", mode:"voice", tts:true };
+  return { lang:"en", mode:"voice", tts:true, handsFree:false };
 }
-function savePrefs(){ try{ localStorage.setItem(NS("prefs"),JSON.stringify({lang,mode,tts:ttsEnabled})); }catch(e){} }
-function langInstruction(){
-  const l=LANGS.find(x=>x.code===lang);
-  if(!l || l.code==="en") return "";
-  return `The person has set their preferred language to ${l.label}. Respond in ${l.label} unless they switch languages themselves.`;
-}
+function savePrefs(){ try{ localStorage.setItem(NS("prefs"),JSON.stringify({lang,mode,tts:ttsEnabled,handsFree})); }catch(e){} }
 async function syncLangContext(){
   if(!activeThreadId) return;
   try{ await apiPatch(`/threads/${activeThreadId}`,{context:langInstruction()}); }catch(e){}
@@ -342,13 +353,13 @@ function speechLocale(){ const l=LANGS.find(x=>x.code===lang); return l?l.speech
 function langInstruction(){
   const l=LANGS.find(x=>x.code===lang);
   if(!l || l.code==="en") return "";
-  return `\n\nThe person has set their preferred language to ${l.label}. Respond in ${l.label} unless they switch languages themselves.`;
+  return `\n\nThe person has set their preferred language to ${l.name||l.label}. Respond in ${l.name||l.label} unless they switch languages themselves.`;
 }
 
 /* ════════ TOAST / MODALS ════════ */
 function toast(msg,dur=2200){ const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),dur); }
 function copyText(btn){ navigator.clipboard.writeText(btn.dataset.text).then(()=>toast("Copied")); }
-function signOut(){ confirmModal("Sign out?","You'll need your key to return. This conversation stays saved on this device.","Sign out",()=>{ try{localStorage.removeItem(VOICE_ACCESS_STORE);}catch(e){} location.reload(); }); }
+function signOut(){ confirmModal("Sign out?","You'll need your key to return. Your conversation stays saved with your key.","Sign out",()=>{ try{localStorage.removeItem(VOICE_ACCESS_STORE);}catch(e){} location.reload(); }); }
 function closeModal(){ document.getElementById("modal").classList.remove("open"); }
 function confirmModal(title,body,okLabel,onOk){
   document.getElementById("modal-title").textContent=title; document.getElementById("modal-body").textContent=body;
@@ -427,22 +438,139 @@ function renderConvo(turns){
   scrollDown();
 }
 
+/* ════════ CONVERSATION STATE ════════ */
+// phase: idle -> listening -> thinking -> speaking -> idle.  The mic circle does the obvious
+// thing for the current phase: start listening, send now, stop generating, or interrupt speech.
+let phase="idle";
+let handsFree=false, convoActive=false, emptyTurns=0;
+let reqAbort=null;
+
+function setPhase(p){
+  phase=p;
+  const mic=document.getElementById("mic-big"), st=document.getElementById("mic-status");
+  mic.classList.toggle("listening",p==="listening");
+  mic.classList.toggle("thinking",p==="thinking");
+  mic.classList.toggle("speaking",p==="speaking");
+  document.getElementById("send-btn").disabled=(p==="thinking");
+  if(p==="listening") st.textContent="Listening…";
+  else if(p==="thinking") st.textContent="Thinking… tap to stop";
+  else if(p==="speaking") st.textContent="Speaking… tap to interrupt";
+  else st.textContent = convoActive ? "Getting ready to listen…" : "Tap to speak";
+}
+function updateConvoUI(){
+  const hf=document.getElementById("handsfree-btn");
+  hf.textContent="Hands-free: "+(handsFree?"on":"off");
+  hf.classList.toggle("on",handsFree);
+  document.getElementById("end-convo").style.display = convoActive ? "" : "none";
+}
+
+/* ════════ SPOKEN OUTPUT (sentence by sentence, as the reply streams) ════════ */
+let voices=[], speechPending=0, speechGen=0, spokenIdx=0, streamDone=true;
+const warnedNoVoice=new Set();
+function loadVoices(){ voices=window.speechSynthesis ? speechSynthesis.getVoices() : []; }
+if(window.speechSynthesis){ loadVoices(); speechSynthesis.onvoiceschanged=loadVoices; }
+function pickVoice(){
+  const code=speechLocale().toLowerCase(), base=code.slice(0,2);
+  return voices.find(v=>v.lang.replace("_","-").toLowerCase()===code) || voices.find(v=>v.lang.toLowerCase().startsWith(base)) || null;
+}
+// If the voice list hasn't loaded yet we can't know, so assume yes. If it has loaded and this
+// language has no voice, we stay silent rather than read it out in a wrong accent.
+function voiceAvailable(){ return !voices.length || !!pickVoice(); }
+function cleanForSpeech(t){
+  return stripMd(t).replace(/<[^>]+>/g,"").replace(/^\s*(\d+\.|[-•*])\s+/gm,"").replace(/\s+/g," ").trim();
+}
+function enqueueSpeech(text){
+  if(!ttsEnabled || !window.speechSynthesis) return;
+  const t=cleanForSpeech(text); if(!t) return;
+  if(!voiceAvailable()){
+    if(!warnedNoVoice.has(lang)){ warnedNoVoice.add(lang); toast(`This device has no ${langName()} voice, so replies are shown in writing.`,4500); }
+    return;
+  }
+  const u=new SpeechSynthesisUtterance(t); u.lang=speechLocale(); u.rate=0.96;
+  const v=pickVoice(); if(v) u.voice=v;
+  const gen=speechGen;
+  speechPending++;
+  u.onstart=()=>{ if(gen===speechGen && phase!=="listening") setPhase("speaking"); };
+  const done=()=>{ if(gen!==speechGen) return; speechPending=Math.max(0,speechPending-1); maybeFinish(); };
+  u.onend=done; u.onerror=done;
+  speechSynthesis.speak(u);
+}
+function stopSpeaking(){
+  speechGen++; speechPending=0;
+  if(window.speechSynthesis) speechSynthesis.cancel();
+}
+function speak(text){ stopSpeaking(); spokenIdx=0; streamDone=true; enqueueSpeech(text); }
+// Speak every COMPLETE sentence found so far; the unfinished tail waits for more text.
+function feedSpeech(full,final){
+  const rest=full.slice(spokenIdx);
+  const re=/([.!?…]+["'”’)\]]*)(\s+)|(\n{2,})/g;
+  let m,last=0;
+  while((m=re.exec(rest))){ const end=m.index+m[0].length; enqueueSpeech(rest.slice(last,end)); last=end; }
+  spokenIdx+=last;
+  if(final){ const tail=full.slice(spokenIdx); if(tail.trim()) enqueueSpeech(tail); spokenIdx=full.length; }
+}
+function maybeFinish(){
+  if(!streamDone || speechPending>0 || phase==="listening") return;
+  setPhase("idle");
+  if(convoActive) setTimeout(()=>{ if(convoActive && phase==="idle") startListening(); },450);
+}
+function replaySpeak(btn){
+  if(!window.speechSynthesis) return;
+  if(speechSynthesis.speaking){ stopSpeaking(); btn.classList.remove("on"); return; }
+  if(!voiceAvailable()){ toast(`This device has no ${langName()} voice.`,3000); return; }
+  document.querySelectorAll(".chip-act.on").forEach(b=>b.classList.remove("on")); btn.classList.add("on");
+  const u=new SpeechSynthesisUtterance(cleanForSpeech(btn.dataset.text)); u.lang=speechLocale(); u.rate=0.96;
+  const v=pickVoice(); if(v) u.voice=v;
+  u.onend=()=>btn.classList.remove("on"); u.onerror=()=>btn.classList.remove("on");
+  speechSynthesis.speak(u);
+}
+
 /* ════════ SEND ════════ */
-function setBusyUI(b){
-  busy=b;
-  document.getElementById("mic-big").classList.toggle("busy",b);
-  document.getElementById("mic-big").disabled=b;
-  document.getElementById("send-btn").disabled=b;
-  if(b) document.getElementById("mic-status").textContent="Thinking…";
-  else if(!isRecording) document.getElementById("mic-status").textContent="Tap to speak";
+function beginCpMsg(){
+  hideWelcome();
+  const div=document.createElement("div"); div.className="msg msg-cp";
+  div.innerHTML=`<div class="cp-mark"><div class="cp-mark-dot"></div></div><div class="msg-cp-inner"><div class="msg-cp-bubble"><span class="cursor-blink"></span></div><div class="msg-extras"></div></div>`;
+  document.getElementById("feed").appendChild(div); scrollDown();
+  return { bubble:div.querySelector(".msg-cp-bubble"), extras:div.querySelector(".msg-extras") };
+}
+// What the model recorded during this reply. Voice has no workspace, so show it right here —
+// the things it can't confirm and the steps it is holding — instead of leaving them invisible.
+function notedHTML(flags,steps){
+  const rows=[];
+  flags.forEach(f=>rows.push(`<div class="noted-item verify"><b>Confirm</b>${esc(f.claim_text||"")}${f.confirm_via?` — <i>${esc(f.confirm_via)}</i>`:""}</div>`));
+  steps.forEach(s=>{
+    const bits=[esc(s.text||"")];
+    if(s.due_at) bits.push("due "+esc(String(s.due_at).slice(0,10)));
+    if(s.blocked_on) bits.push("waiting on "+esc(s.blocked_on));
+    rows.push(`<div class="noted-item"><b>Step</b>${bits.join(" · ")}</div>`);
+  });
+  return rows.length ? `<div class="noted">${rows.join("")}</div>` : "";
+}
+function actionsHTML(text){
+  return `<div class="msg-actions">
+        <button class="chip-act" onclick="replaySpeak(this)" data-text="${escAttr(text)}"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>Listen</button>
+        <button class="chip-act" onclick="copyText(this)" data-text="${escAttr(text)}"><svg viewBox="0 0 24 24"><path d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12V1zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11v14z"/></svg>Copy</button>
+      </div>`;
+}
+function finishCpMsg(cp,text,flags,steps){
+  cp.bubble.innerHTML=formatText(text);
+  cp.extras.innerHTML=notedHTML(flags,steps)+actionsHTML(text);
+  scrollDownSoft();
 }
 async function sendMessage(text){
   text=(text||"").trim();
-  if(!text||busy) return;
-  setBusyUI(true);
+  if(!text||phase==="thinking") return;
+  if(phase==="speaking"){ if(reqAbort) reqAbort.abort(); }
+  stopSpeaking(); spokenIdx=0; streamDone=false;
+  setPhase("thinking");
   appendPersonMsg(text);
   showWaiting();
 
+  reqAbort=new AbortController();
+  const signal=reqAbort.signal;
+  let cp=null, fullText="";
+  const flags=[], steps=[];
+  const FALLBACK="Something went wrong on my end. Try again in a moment — I am still here.";
   try{
     if(!activeThreadId){
       const d=await apiPost("/threads",{});
@@ -450,34 +578,50 @@ async function sendMessage(text){
       await syncLangContext();
     }
     const response=await fetch(`${SERVER}/webapi/threads/${activeThreadId}/messages`,{
-      method:"POST", headers:authHeaders(),
+      method:"POST", headers:authHeaders(), signal,
       body:JSON.stringify({text, depth:"standard"})
     });
     removeWaiting();
-    if(!response.ok || !response.body){ appendCpMsg("Something went wrong on my end. Try again in a moment — I am still here.",true); }
-    else{
-      let fullText="";
-      const reader=response.body.getReader(); const decoder=new TextDecoder(); let buf="";
-      while(true){
-        const {done,value}=await reader.read(); if(done)break;
-        buf+=decoder.decode(value,{stream:true});
-        let sep;
-        while((sep=buf.indexOf("\n\n"))!==-1){
-          const raw=buf.slice(0,sep); buf=buf.slice(sep+2);
-          const line=raw.split("\n").find(l=>l.startsWith("data:")); if(!line)continue;
-          let evt; try{ evt=JSON.parse(line.slice(5).trim()); }catch(e){ continue; }
-          if(evt.type==="text") fullText+=evt.delta;
-          // type:"tool" events are dropped here — voice.html has no workspace UI to
-          // surface them in; the tool's effect still persists server-side.
+    if(!response.ok || !response.body) throw new Error("bad response");
+    cp=beginCpMsg();
+    const reader=response.body.getReader(); const decoder=new TextDecoder(); let buf="";
+    while(true){
+      const {done,value}=await reader.read(); if(done)break;
+      buf+=decoder.decode(value,{stream:true});
+      let sep;
+      while((sep=buf.indexOf("\n\n"))!==-1){
+        const raw=buf.slice(0,sep); buf=buf.slice(sep+2);
+        const line=raw.split("\n").find(l=>l.startsWith("data:")); if(!line)continue;
+        let evt; try{ evt=JSON.parse(line.slice(5).trim()); }catch(e){ continue; }
+        if(evt.type==="text"){
+          fullText+=evt.delta;
+          cp.bubble.innerHTML=formatText(fullText)+'<span class="cursor-blink"></span>';
+          feedSpeech(fullText,false);
+          scrollDownSoft();
+        } else if(evt.type==="tool"){
+          if(evt.name==="flag_verification") flags.push(evt.input||{});
+          else if(evt.name==="update_held_thread") steps.push(evt.input||{});
         }
       }
-      appendCpMsg(fullText || "Something went wrong on my end. Try again in a moment — I am still here.", true);
     }
+    if(!fullText) fullText=FALLBACK;
+    feedSpeech(fullText,true);
+    finishCpMsg(cp,fullText,flags,steps);
   }catch(e){
     removeWaiting();
-    appendCpMsg("I lost the connection. Check your internet and try again — I haven't gone anywhere.",true);
+    if(e && e.name==="AbortError"){
+      if(cp){
+        if(fullText) finishCpMsg(cp,fullText,flags,steps);
+        else { const m=cp.bubble.closest(".msg"); if(m) m.remove(); } // stopped before it said anything
+      }
+      return; // interruptReply()/endConversation() already reset the phase
+    }
+    const msg = cp ? FALLBACK : "I lost the connection. Check your internet and try again — I haven't gone anywhere.";
+    if(cp) finishCpMsg(cp,fullText||msg,flags,steps); else appendCpMsg(msg,false);
+    stopSpeaking(); spokenIdx=0; enqueueSpeech(fullText||msg);
   }
-  setBusyUI(false);
+  streamDone=true;
+  maybeFinish();
 }
 function sendFromText(){
   const inp=document.getElementById("msg-input");
@@ -489,22 +633,39 @@ function handleKey(e){ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); sen
 function autoResize(el){ el.style.height="auto"; el.style.height=Math.min(el.scrollHeight,140)+"px"; }
 function focusInput(){ if(mode==="text") setTimeout(()=>{ const el=document.getElementById("msg-input"); if(el&&window.innerWidth>560)el.focus(); },120); }
 
-/* ════════ VOICE ════════ */
+/* ════════ LISTENING ════════ */
 function toggleMic(){
-  if(busy) return;
-  if(!('webkitSpeechRecognition' in window||'SpeechRecognition' in window)){ toast("Voice input isn't supported in this browser"); return; }
-  if(isRecording){ if(recognition) recognition.stop(); return; }
+  if(phase==="listening"){ if(recognition) recognition.stop(); return; }   // send what was said now
+  if(phase==="thinking"||phase==="speaking"){ interruptReply(); return; }
+  if(handsFree){ convoActive=true; emptyTurns=0; updateConvoUI(); }
+  startListening();
+}
+function interruptReply(){
+  if(reqAbort) reqAbort.abort();
+  stopSpeaking(); removeWaiting();
+  streamDone=true;
+  setPhase("idle");
+  if(convoActive) setTimeout(()=>{ if(convoActive && phase==="idle") startListening(); },300);
+}
+function endConversation(){
+  convoActive=false; emptyTurns=0;
+  if(recognition && phase==="listening"){ try{ recognition.abort(); }catch(e){} }
+  if(reqAbort) reqAbort.abort();
+  stopSpeaking(); removeWaiting();
+  streamDone=true;
+  setPhase("idle"); updateConvoUI();
+}
+function startListening(){
+  if(phase!=="idle") return;
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){ toast("Voice input isn't supported in this browser. You can still type."); convoActive=false; updateConvoUI(); return; }
+  stopSpeaking();
   recognition=new SR();
   recognition.lang=speechLocale();
   recognition.continuous=false;
   recognition.interimResults=true;
-  let finalTranscript="";
-  recognition.onstart=()=>{
-    isRecording=true; finalTranscript="";
-    document.getElementById("mic-big").classList.add("listening");
-    document.getElementById("mic-status").textContent="Listening…";
-  };
+  let finalTranscript="", err=null;
+  recognition.onstart=()=>{ setPhase("listening"); };
   recognition.onresult=e=>{
     let interim="";
     for(let i=0;i<e.results.length;i++){
@@ -513,35 +674,24 @@ function toggleMic(){
     }
     document.getElementById("mic-status").textContent=(finalTranscript+interim).trim()||"Listening…";
   };
+  recognition.onerror=e=>{ err=e.error; };
   recognition.onend=()=>{
-    isRecording=false;
-    document.getElementById("mic-big").classList.remove("listening");
     const text=finalTranscript.trim();
-    document.getElementById("mic-status").textContent="Tap to speak";
-    if(text) sendMessage(text);
+    if(phase==="listening") setPhase("idle");
+    if(err==="not-allowed"||err==="service-not-allowed"){
+      convoActive=false; updateConvoUI(); toast("Microphone access is blocked for this page.",4000); return;
+    }
+    if(err==="language-not-supported"){
+      convoActive=false; updateConvoUI(); toast(`This browser can't listen in ${langName()}. You can type instead.`,4500); return;
+    }
+    if(text){ emptyTurns=0; sendMessage(text); return; }
+    if(convoActive){
+      emptyTurns++;
+      if(emptyTurns>=3){ convoActive=false; updateConvoUI(); setPhase("idle"); toast("Paused — tap the circle to continue."); }
+      else setTimeout(()=>{ if(convoActive && phase==="idle") startListening(); },300);
+    }
   };
-  recognition.onerror=()=>{
-    isRecording=false;
-    document.getElementById("mic-big").classList.remove("listening");
-    document.getElementById("mic-status").textContent="Tap to speak";
-  };
-  recognition.start();
-}
-function speak(text){
-  if(!window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
-  const u=new SpeechSynthesisUtterance(stripMd(text).replace(/<[^>]+>/g,""));
-  u.lang=speechLocale(); u.rate=0.94;
-  window.speechSynthesis.speak(u);
-}
-function replaySpeak(btn){
-  if(!window.speechSynthesis) return;
-  const t=btn.dataset.text;
-  if(window.speechSynthesis.speaking){ window.speechSynthesis.cancel(); btn.classList.remove("on"); return; }
-  document.querySelectorAll(".chip-act.on").forEach(b=>b.classList.remove("on")); btn.classList.add("on");
-  const u=new SpeechSynthesisUtterance(stripMd(t)); u.lang=speechLocale(); u.rate=0.94;
-  u.onend=()=>btn.classList.remove("on");
-  window.speechSynthesis.speak(u);
+  try{ recognition.start(); }catch(e){ setPhase("idle"); }
 }
 
 /* ════════ MODE / PREFS ════════ */
@@ -549,17 +699,25 @@ function setMode(m){
   mode=m; savePrefs();
   document.getElementById("mic-zone").style.display = m==="voice" ? "flex" : "none";
   document.getElementById("text-zone").style.display = m==="text" ? "flex" : "none";
-  if(m==="voice" && isRecording && recognition) recognition.stop();
+  if(m==="text") endConversation();
   if(m==="text") focusInput();
+}
+function toggleHandsFree(){
+  handsFree=!handsFree; savePrefs();
+  if(!handsFree && convoActive) endConversation();
+  updateConvoUI();
+  if(handsFree) toast("Hands-free on: tap the circle once, then just talk. I'll listen again after each reply.",4500);
 }
 function onLangChange(v){
   lang=v; savePrefs();
   if(recognition) recognition.lang=speechLocale();
   syncLangContext();
+  const l=LANGS.find(x=>x.code===lang);
+  if(l && l.exp) toast(`${l.name} is experimental: replies may be unreliable. Please double-check anything important.`,6000);
 }
 function toggleTTS(){
   ttsEnabled=!ttsEnabled; savePrefs(); updateTtsBtn();
-  if(!ttsEnabled && window.speechSynthesis) window.speechSynthesis.cancel();
+  if(!ttsEnabled) stopSpeaking();
 }
 function updateTtsBtn(){
   const b=document.getElementById("tts-btn");
@@ -569,14 +727,15 @@ function updateTtsBtn(){
 function clearConvo(){
   if(!activeThreadId){ toast("Nothing to clear"); return; }
   confirmModal("Clear this conversation?","This removes everything said so far. It can't be undone.","Clear",async()=>{
+    endConversation();
     await apiDelete(`/threads/${activeThreadId}`);
     activeThreadId=null;
     document.getElementById("feed").innerHTML="";
     document.getElementById("welcome").style.display="block";
-    if(window.speechSynthesis) window.speechSynthesis.cancel();
     toast("Cleared");
   });
 }
+document.addEventListener("visibilitychange",()=>{ if(document.hidden && convoActive) endConversation(); });
 
 /* ════════ KEY SCREEN ════════ */
 function onKeyInput(input){ document.getElementById("flame-svg").classList.toggle("alive",input.value.length>0);
@@ -600,7 +759,7 @@ async function enterApp(){
   document.getElementById("key-label").textContent=currentKey;
 
   const p=loadPrefs();
-  lang=p.lang||"en"; mode=p.mode||"voice"; ttsEnabled=(p.tts!==false);
+  lang=p.lang||"en"; mode=p.mode||"voice"; ttsEnabled=(p.tts!==false); handsFree=!!p.handsFree; updateConvoUI(); setPhase("idle");
   document.getElementById("lang-select").value=lang;
   updateTtsBtn();
 
