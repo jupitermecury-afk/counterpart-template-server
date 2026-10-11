@@ -340,11 +340,12 @@ router.delete('/push/register', asyncRoute(async (req, res) => {
   res.json({ ok: true });
 }));
 
-// Person-triggered erasure. Every table hangs off access_keys with ON DELETE CASCADE
-// (threads, turns, held items, verification items, artifacts, push tokens), so removing the
-// key removes everything held for it, and the key itself stops working.
+// Person-triggered erasure of everything held for them: every situation and, through
+// ON DELETE CASCADE, its turns, steps, claims, documents, decisions, actions log and reviews.
+// The key itself stays valid (an erase must never lock the person out), and so does this
+// device's push registration, which is not situation content.
 router.delete('/me', asyncRoute(async (req, res) => {
-  await pool.query(`DELETE FROM access_keys WHERE id = $1`, [req.accessKeyId]);
+  await pool.query(`DELETE FROM threads WHERE access_key_id = $1`, [req.accessKeyId]);
   res.json({ ok: true });
 }));
 
