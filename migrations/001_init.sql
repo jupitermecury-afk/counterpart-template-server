@@ -116,3 +116,20 @@ CREATE TABLE IF NOT EXISTS decisions (
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_decisions_thread ON decisions(thread_id);
+
+-- Actions log: a passive audit trail of what actually left the system from a situation (an
+-- email sent, a calendar event added, text shared). The record, not the working surface.
+CREATE TABLE IF NOT EXISTS actions (
+  id                 SERIAL PRIMARY KEY,
+  thread_id          INTEGER NOT NULL REFERENCES threads(id) ON DELETE CASCADE,
+  artifact_id        INTEGER REFERENCES artifacts(id) ON DELETE SET NULL,
+  action_type        TEXT NOT NULL,
+  description        TEXT NOT NULL,
+  executed_by        TEXT NOT NULL DEFAULT 'person' CHECK (executed_by IN ('person','counterpart')),
+  confirmation_mode  TEXT NOT NULL DEFAULT 'person_confirmed' CHECK (confirmation_mode IN ('person_confirmed','person_executed','autonomous')),
+  outcome            TEXT NOT NULL DEFAULT 'ok',
+  confirmation_ref   TEXT,
+  parameters         JSONB NOT NULL DEFAULT '{}'::jsonb,
+  executed_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_actions_thread ON actions(thread_id);

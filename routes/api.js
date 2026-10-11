@@ -4,6 +4,8 @@ const rateLimit = require('express-rate-limit');
 const { pool } = require('../db');
 const { loadBriefing, safeIso } = require('../lib/briefing');
 const { logDecision, decisionsContext, updateDecision, dismissProposal } = require('../lib/decisions');
+const { recordAction, recordClientAction, listActions, actionsContext } = require('../lib/actions');
+const ACTION_TABLES = { actions: 'actions', artifacts: 'artifacts', threads: 'threads' };
 const DECISION_TABLES = { decisions: 'decisions', threads: 'threads' };
 const { streamCounterpartReply } = require('../lib/claude');
 const { sendRealEmail, isMailerConfigured } = require('../lib/mailer');
@@ -231,10 +233,17 @@ router.post('/artifacts/:id/send-email', asyncRoute(async (req, res) => {
   }
 
   const { to, subject, body } = artifact.content_json || {};
+  const subjectLabel = subject ? ` — “${String(subject).slice(0, 80)}”` : '';
+  let sent;
   try {
-    await sendRealEmail({ to, subject, body });
+    sent = await sendRealEmail({ to, subject, body });
   } catch (err) {
     console.error('[api] send-email error:', err);
+    await recordAction(pool, ACTION_TABLES, artifact.thread_id, {
+      artifact_id: artifactId, action_type: 'email_send_failed',
+      description: `Tried to send an email to ${to || 'a recipient'}${subjectLabel}, and it did not go`,
+      outcome: 'failed', confirmation_mode: 'person_confirmed', parameters: { to: to || null, subject: subject || null },
+    });
     return res.status(502).json({ error: err.message || 'failed to send' });
   }
 
@@ -242,6 +251,12 @@ router.post('/artifacts/:id/send-email', asyncRoute(async (req, res) => {
     `UPDATE artifacts SET sent_at = now() WHERE id = $1 RETURNING sent_at`,
     [artifactId]
   );
+  await recordAction(pool, ACTION_TABLES, artifact.thread_id, {
+    artifact_id: artifactId, action_type: 'email_sent',
+    description: `Sent an email to ${to}${subjectLabel}`,
+    outcome: 'sent', confirmation_mode: 'person_confirmed',
+    confirmation_ref: sent && sent.messageId, parameters: { to, subject: subject || null },
+  });
   res.json({ ok: true, sent_at: updated.rows[0].sent_at });
 }));
 
@@ -255,6 +270,24 @@ router.post('/push/register', asyncRoute(async (req, res) => {
     [req.accessKeyId, expo_push_token]
   );
   res.json({ ok: true });
+}));
+
+// A device reports something the person did with an artifact (opened it in their mail app,
+// added it to their calendar, shared it). The description is built from the stored artifact.
+router.post('/threads/:id/actions', asyncRoute(async (req, res) => {
+  const threadId = +req.params.id;
+  if (!(await assertOwnedThread(threadId, req.accessKeyId))) return res.status(404).json({ error: 'not found' });
+  const { action_type, artifact_id } = req.body || {};
+  const r = await recordClientAction(pool, ACTION_TABLES, threadId, req.accessKeyId, { action_type, artifact_id: +artifact_id });
+  if (r.error) return res.status(r.status).json({ error: r.error });
+  res.json({ action: r.row });
+}));
+
+// The audit trail for a situation — queried, never pushed wholesale.
+router.get('/threads/:id/actions', asyncRoute(async (req, res) => {
+  const threadId = +req.params.id;
+  if (!(await assertOwnedThread(threadId, req.accessKeyId))) return res.status(404).json({ error: 'not found' });
+  res.json({ actions: await listActions(pool, ACTION_TABLES, threadId) });
 }));
 
 // Confirm / edit / reverse a decision (the person's judgment; the counterpart can only propose).
@@ -342,6 +375,7 @@ async function buildGroundTruthContext(threadId) {
     }).join('\n');
   }
   block += await decisionsContext(pool, DECISION_TABLES, threadId);
+  block += await actionsContext(pool, ACTION_TABLES, threadId);
   return block;
 }
 

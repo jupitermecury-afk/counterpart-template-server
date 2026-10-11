@@ -13,6 +13,8 @@ const rateLimit = require('express-rate-limit');
 const { pool } = require('../db');
 const { loadBriefing, safeIso } = require('../lib/briefing');
 const { logDecision, decisionsContext, updateDecision, dismissProposal } = require('../lib/decisions');
+const { recordAction, recordClientAction, listActions, actionsContext } = require('../lib/actions');
+const ACTION_TABLES = { actions: 'web_actions', artifacts: 'web_artifacts', threads: 'web_threads' };
 const DECISION_TABLES = { decisions: 'web_decisions', threads: 'web_threads' };
 const { streamCounterpartReply, fileIdsFromServerBlock, fetchGeneratedFile, deleteGeneratedFile } = require('../lib/claude');
 
@@ -250,6 +252,7 @@ async function buildGroundTruthContext(threadId) {
     }).join('\n');
   }
   block += await decisionsContext(pool, DECISION_TABLES, threadId);
+  block += await actionsContext(pool, ACTION_TABLES, threadId);
   return block;
 }
 
@@ -542,6 +545,24 @@ router.post('/threads/:id/summarise', asyncRoute(async (req, res) => {
     console.error('[webapi] summarise error:', err);
     res.status(502).json({ error: 'could not generate summary' });
   }
+}));
+
+// A device reports something the person did with an artifact (opened it in their mail app,
+// added it to their calendar, shared it). The description is built from the stored artifact.
+router.post('/threads/:id/actions', asyncRoute(async (req, res) => {
+  const threadId = +req.params.id;
+  if (!(await assertOwnedThread(threadId, req.accessKeyId))) return res.status(404).json({ error: 'not found' });
+  const { action_type, artifact_id } = req.body || {};
+  const r = await recordClientAction(pool, ACTION_TABLES, threadId, req.accessKeyId, { action_type, artifact_id: +artifact_id });
+  if (r.error) return res.status(r.status).json({ error: r.error });
+  res.json({ action: r.row });
+}));
+
+// The audit trail for a situation — queried, never pushed wholesale.
+router.get('/threads/:id/actions', asyncRoute(async (req, res) => {
+  const threadId = +req.params.id;
+  if (!(await assertOwnedThread(threadId, req.accessKeyId))) return res.status(404).json({ error: 'not found' });
+  res.json({ actions: await listActions(pool, ACTION_TABLES, threadId) });
 }));
 
 // Confirm / edit / reverse a decision (the person's judgment; the counterpart can only propose).
