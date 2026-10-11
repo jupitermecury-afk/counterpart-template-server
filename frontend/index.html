@@ -988,6 +988,7 @@ function renderDocs(){
           <span class="doc-card-title">${esc(d.title)}</span>
           <span class="doc-card-kind" style="margin:0">${esc(size)}</span></div>
         <div class="doc-card-actions" style="border-top:1px solid var(--cream-faint)">
+          <button class="doc-mini" onclick="shareFile(${d.id})">Share</button>
           <button class="doc-mini" onclick="downloadFile(${d.id})">Download</button>
         </div></div>`;
     }
@@ -1004,6 +1005,7 @@ function renderDocs(){
         <div class="doc-card-actions">
           ${isPerson?`<button class="doc-mini" onclick="renameDoc(${d.id})">Rename</button>`:""}
           <button class="doc-mini" onclick="copyDoc(${d.id})">Copy</button>
+          <button class="doc-mini" onclick="whatsappDoc(${d.id})">WhatsApp</button>
           <button class="doc-mini" onclick="downloadDoc(${d.id})">Download</button>
           <button class="doc-mini" onclick="printDoc(${d.id})">Print / PDF</button>
           ${isPerson?`<button class="doc-mini del" onclick="deleteDoc(${d.id})">Delete</button>`:""}
@@ -1019,6 +1021,48 @@ async function downloadFile(id){
     const a=document.createElement("a"); a.href=url; a.download=(d.content_json&&d.content_json.filename)||d.title||"file";
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000);
   }catch(e){ toast("Could not download that file"); }
+}
+// Reports that the person opened a hand-off (WhatsApp, share sheet) for a document. Best-effort:
+// it must never get in the way of the action itself, and it only ever says "opened"/"shared".
+function reportAction(type,docId){
+  try{ if(activeThread&&activeThread.thread) apiPost(`/threads/${activeThread.thread.id}/actions`,{action_type:type,artifact_id:docId}).catch(()=>{}); }catch(e){}
+}
+// WhatsApp via a plain link: it opens WhatsApp with the text filled in and the person picks the
+// contact and presses send. Text only (a link cannot carry a file), and long text is cut.
+const WA_MAX=3500;
+function whatsappDoc(id){
+  const d=getDoc(id); if(!d)return;
+  const full=`${d.title?d.title+"\n\n":""}${bodyOf(d)}`.trim();
+  const cut=full.length>WA_MAX;
+  const text=cut?full.slice(0,WA_MAX).replace(/\s+\S*$/,"")+"…":full;
+  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`,"_blank","noopener");
+  if(cut) toast("Long document — WhatsApp gets the first part. Use Copy for all of it.",4200);
+  reportAction("whatsapp_opened",id);
+}
+// Files cannot ride a link. Where the browser can hand a real file to another app (phones, some
+// desktops) this opens the share sheet, where WhatsApp appears; otherwise the file is downloaded
+// so it can be attached by hand.
+async function shareFile(id){
+  const d=getDoc(id); if(!d)return;
+  try{
+    const r=await fetch(`${SERVER}/webapi/files/${id}`,{headers:{"x-counterpart-key":currentKey}});
+    if(!r.ok) throw new Error("fetch failed");
+    const blob=await r.blob();
+    const name=(d.content_json&&d.content_json.filename)||d.title||"file";
+    const file=new File([blob],name,{type:blob.type||"application/octet-stream"});
+    if(navigator.canShare&&navigator.canShare({files:[file]})){
+      await navigator.share({files:[file],title:d.title||name});
+      reportAction("text_shared",id);
+      return;
+    }
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a"); a.href=url; a.download=name;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000);
+    toast("Downloaded — attach it in WhatsApp or your mail app",4200);
+  }catch(e){
+    if(e&&e.name==="AbortError") return;   // the person closed the share sheet
+    toast("Could not share that file");
+  }
 }
 let docSaveTimer=null;
 function updateDoc(id,v){
