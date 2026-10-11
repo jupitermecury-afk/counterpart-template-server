@@ -5,6 +5,8 @@ const { pool } = require('../db');
 const { loadBriefing, safeIso } = require('../lib/briefing');
 const { logDecision, decisionsContext, updateDecision, dismissProposal } = require('../lib/decisions');
 const { recordAction, recordClientAction, listActions, actionsContext } = require('../lib/actions');
+const { runReview, resolveStatusForCounterpart } = require('../lib/review');
+const REVIEW_TABLES = { threads: 'threads', held: 'held_items', verification: 'verification_items', decisions: 'decisions', actions: 'actions', turns: 'turns', reviews: 'reviews' };
 const ACTION_TABLES = { actions: 'actions', artifacts: 'artifacts', threads: 'threads' };
 const DECISION_TABLES = { decisions: 'decisions', threads: 'threads' };
 const { streamCounterpartReply } = require('../lib/claude');
@@ -272,6 +274,21 @@ router.post('/push/register', asyncRoute(async (req, res) => {
   res.json({ ok: true });
 }));
 
+// "Move this forward": a bounded, person-triggered review pass. Researches open claims, keeps
+// steps current, and reports what it handled and what needs the person. Cannot send anything.
+router.post('/threads/:id/review', asyncRoute(async (req, res) => {
+  const threadId = +req.params.id;
+  if (!(await assertOwnedThread(threadId, req.accessKeyId))) return res.status(404).json({ error: 'not found' });
+  try {
+    const r = await runReview({ pool, tables: REVIEW_TABLES, threadId });
+    if (r.error) return res.status(r.status || 500).json({ error: r.error });
+    res.json({ report: r.report, changes: r.changes, skipped: !!r.skipped, unchanged: !!r.unchanged });
+  } catch (err) {
+    console.error('[review] failed:', err.message);
+    res.status(502).json({ error: 'The review could not finish. Anything it had already recorded is kept; try again in a moment.' });
+  }
+}));
+
 // A device reports something the person did with an artifact (opened it in their mail app,
 // added it to their calendar, shared it). The description is built from the stored artifact.
 router.post('/threads/:id/actions', asyncRoute(async (req, res) => {
@@ -309,7 +326,7 @@ router.delete('/decisions/:id', asyncRoute(async (req, res) => {
 router.get('/threads/:id/briefing', asyncRoute(async (req, res) => {
   const threadId = +req.params.id;
   if (!(await assertOwnedThread(threadId, req.accessKeyId))) return res.status(404).json({ error: 'not found' });
-  res.json(await loadBriefing(pool, { threads: 'threads', held: 'held_items', verification: 'verification_items', decisions: 'decisions' }, threadId));
+  res.json(await loadBriefing(pool, { threads: 'threads', held: 'held_items', verification: 'verification_items', decisions: 'decisions', reviews: 'reviews' }, threadId));
 }));
 
 // Called on sign-out so a phone stops receiving nudges for a key it no longer holds.
@@ -516,7 +533,7 @@ router.post('/threads/:id/messages', asyncRoute(async (req, res) => {
       } else if (call.name === 'resolve_verification') {
         await pool.query(
           `UPDATE verification_items SET status = $1, updated_at = now() WHERE thread_id = $2 AND claim_text = $3`,
-          [call.input.status, threadId, call.input.claim_text]
+          [await resolveStatusForCounterpart(pool, 'verification_items', threadId, call.input.claim_text, call.input.status), threadId, call.input.claim_text]
         );
       } else if (call.name === 'update_held_thread') {
         const existing = await pool.query(

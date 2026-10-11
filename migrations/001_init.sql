@@ -133,3 +133,21 @@ CREATE TABLE IF NOT EXISTS actions (
   executed_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_actions_thread ON actions(thread_id);
+
+-- Evidence the counterpart attached to a claim while checking it (finding, supports, sources).
+ALTER TABLE verification_items ADD COLUMN IF NOT EXISTS evidence JSONB NOT NULL DEFAULT '[]'::jsonb;
+
+-- One row per "move this forward" review: what it reported, what it changed, what it cost.
+CREATE TABLE IF NOT EXISTS reviews (
+  id             SERIAL PRIMARY KEY,
+  thread_id      INTEGER NOT NULL REFERENCES threads(id) ON DELETE CASCADE,
+  status         TEXT NOT NULL CHECK (status IN ('ok','skipped','failed')),
+  report         JSONB NOT NULL DEFAULT '{}'::jsonb,
+  changes        JSONB NOT NULL DEFAULT '{}'::jsonb,
+  model          TEXT,
+  input_tokens   INTEGER,
+  output_tokens  INTEGER,
+  searches       INTEGER,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_reviews_thread ON reviews(thread_id, created_at);

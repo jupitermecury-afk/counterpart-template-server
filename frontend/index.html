@@ -339,6 +339,20 @@ button{font-family:inherit}
 .ctx-area:focus{border-color:var(--ember)}
 .ctx-save{margin-top:0.7rem;font-size:11px;color:var(--cream-dim);text-align:right}
 /* verification */
+.review-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:0.9rem}
+.review-btn{background:var(--ember);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:12.5px;font-weight:600;cursor:pointer;transition:opacity 0.2s}
+.review-btn:disabled{opacity:0.55;cursor:wait}
+.review-hint{font-size:11px;color:var(--cream-dim);font-style:italic;flex:1;min-width:160px}
+.review-card{border:1px solid var(--cream-faint);border-left:3px solid var(--ember);border-radius:10px;background:var(--earth-lift);padding:12px 14px;margin-bottom:1rem}
+.review-card h4{font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--cream-dim);margin:8px 0 3px;font-weight:600}
+.review-head{font-size:14.5px;color:var(--cream);line-height:1.5}
+.review-card ul{margin:0;padding-left:16px}
+.review-card li{font-size:12.5px;color:var(--cream-mid);line-height:1.5;margin-bottom:2px}
+.review-next{font-size:13px;color:var(--cream);margin-top:8px}
+.evidence{margin-top:4px;font-size:11.5px;color:var(--cream-mid);line-height:1.45}
+.evidence a{color:var(--ember);text-decoration:none}
+.evidence .ev-tag{font-size:9px;letter-spacing:0.07em;text-transform:uppercase;font-weight:600;margin-right:5px}
+.evidence .ev-supports{color:#2e8b57}.evidence .ev-contradicts{color:var(--red-err,#c0392b)}.evidence .ev-unclear{color:var(--cream-dim)}
 .dec-card{border:1px solid var(--cream-faint);border-radius:9px;padding:11px 12px;margin-bottom:0.6rem;background:var(--earth-lift)}
 .dec-card.proposed{border-left:3px solid var(--ember)}
 .dec-card.past{opacity:0.6}
@@ -516,6 +530,11 @@ button{font-family:inherit}
     </div>
     <div class="ws-body">
       <div class="ws-pane on" id="pane-steps">
+        <div class="review-bar">
+          <button class="review-btn" id="review-btn" onclick="moveForward()">Move this forward</button>
+          <span class="review-hint">I'll check what's open, keep your steps current, and tell you what needs you.</span>
+        </div>
+        <div id="review-report"></div>
         <div class="step-add">
           <input id="step-input" placeholder="Add a step…" onkeydown="if(event.key==='Enter')addStepFromInput()">
           <button onclick="addStepFromInput()">+</button>
@@ -630,6 +649,7 @@ function renderBriefing(b){
     ${group("soon","Coming up",b.due_soon,i=>` <small>${i.kind==="verify"?"needs confirming ":"due "}${when(i)}</small>`)}
     ${group("blocked","Waiting on",b.blocked,i=>` <small>— ${esc(i.blocked_on)}</small>`)}
     ${group("unconfirmed","Not yet confirmed",b.unconfirmed,i=>i.confirm_via?` <small>— ${esc(i.confirm_via)}</small>`:"")}
+    ${(b.last_review&&b.last_review.needs_you&&b.last_review.needs_you.length)?group("review","From my last review",b.last_review.needs_you.map((t,i)=>({text:t,id:i,kind:"note"})),()=>""):""}
     ${(b.proposed_decisions&&b.proposed_decisions.length)?group("decisions","Decisions to confirm",b.proposed_decisions,()=>"")+`<div class="briefing-group"><button class="doc-mini" onclick="openWorkspaceTo('decisions')">Review decisions</button></div>`:""}
   </div>`;
 }
@@ -653,6 +673,7 @@ function renderActiveThread(){
   document.getElementById("depth-select").value = depth;
   renderSteps(); renderDocs(); renderDecisions(); renderVerification(); renderSitList();
   renderReopenBanner(); updateCloseInvite();
+  { const rr=document.getElementById("review-report"); if(rr) rr.innerHTML=""; }
   scrollDown(false);
 }
 async function refreshActiveThread(){
@@ -1031,6 +1052,45 @@ function printDoc(id){
 }
 async function deleteDoc(id){ await apiDelete(`/artifacts/${id}`); await refreshActiveThread(); }
 
+/* ════════ MOVE THIS FORWARD ════════ */
+let reviewing=false;
+async function moveForward(){
+  if(reviewing||!activeThread) return;
+  reviewing=true;
+  const btn=document.getElementById("review-btn"), slot=document.getElementById("review-report");
+  btn.disabled=true; btn.textContent="Working on it…";
+  slot.innerHTML='<div class="review-card"><div class="review-head"><em>Looking at what is open and checking what can be checked. This can take up to a minute.</em></div></div>';
+  try{
+    const id=activeThread.thread.id;
+    const r=await apiPost(`/threads/${id}/review`,{});
+    renderReviewReport(r);
+    await refreshActiveThread();
+    loadBriefing(id);
+  }catch(e){
+    slot.innerHTML='<div class="review-card"><div class="review-head">I couldn\'t finish that just now. Anything I had already recorded is kept. Try again in a moment.</div></div>';
+  }
+  reviewing=false; btn.disabled=false; btn.textContent="Move this forward";
+}
+function renderReviewReport(r){
+  const slot=document.getElementById("review-report"); if(!r||!r.report){ slot.innerHTML=""; return; }
+  const p=r.report;
+  const list=(title,items)=>items&&items.length?`<h4>${title}</h4><ul>${items.map(i=>`<li>${esc(i)}</li>`).join("")}</ul>`:"";
+  slot.innerHTML=`<div class="review-card">
+    <div class="review-head">${esc(p.headline||"")}</div>
+    ${list("What I did",p.handled)}
+    ${list("Needs you",p.needs_you)}
+    ${p.next_move?`<div class="review-next"><strong>Next:</strong> ${esc(p.next_move)}</div>`:""}
+  </div>`;
+}
+function evidenceHTML(v){
+  const ev=Array.isArray(v.evidence)?v.evidence:[]; if(!ev.length) return "";
+  return ev.slice(-2).map(e=>{
+    const src=(e.sources||[]).slice(0,3).map(s=>`<a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">${esc(s.title||s.url.replace(/^https?:\/\//,"").split("/")[0])}</a>`).join(", ");
+    const tag=e.supports==="supports"?"Supports":e.supports==="contradicts"?"Contradicts":"Unclear";
+    return `<div class="evidence"><span class="ev-tag ev-${esc(e.supports||"unclear")}">${tag}</span>${esc(e.finding||"")}${src?` — ${src}`:""}</div>`;
+  }).join("");
+}
+
 /* ════════ DECISIONS ════════ */
 function getDecisions(){ return activeThread && activeThread.decisions ? activeThread.decisions : []; }
 function renderDecisions(){
@@ -1083,7 +1143,7 @@ function renderVerification(){
     const idx=VERIF_CYCLE.indexOf(v.status); const next=VERIF_CYCLE[(idx+1)%VERIF_CYCLE.length];
     return `<div class="verif-chip" onclick="cycleVerification(${v.id},'${next}')">
       <div class="verif-dot ${v.status==="confirmed"?"ok":""}"></div>
-      <div class="verif-text">${esc(v.claim_text)}${v.confirm_via?`<div class="verif-confirm-via">confirm via: ${esc(v.confirm_via)}</div>`:""}${v.due_at&&v.status!=="confirmed"?`<div class="verif-confirm-via">${new Date(v.due_at)<new Date()?"overdue — needed by":"needed by"} ${new Date(v.due_at).toISOString().slice(0,10)}</div>`:""}</div>
+      <div class="verif-text">${esc(v.claim_text)}${v.confirm_via?`<div class="verif-confirm-via">confirm via: ${esc(v.confirm_via)}</div>`:""}${v.due_at&&v.status!=="confirmed"?`<div class="verif-confirm-via">${new Date(v.due_at)<new Date()?"overdue — needed by":"needed by"} ${new Date(v.due_at).toISOString().slice(0,10)}</div>`:""}${evidenceHTML(v)}</div>
       <div class="verif-status">${VERIF_LABEL[v.status]}</div>
     </div>`;
   }).join("");

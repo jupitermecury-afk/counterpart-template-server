@@ -156,3 +156,21 @@ CREATE TABLE IF NOT EXISTS web_actions (
   executed_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_web_actions_thread ON web_actions(thread_id);
+
+-- Evidence the counterpart attached to a claim while checking it (finding, supports, sources).
+ALTER TABLE web_verification_items ADD COLUMN IF NOT EXISTS evidence JSONB NOT NULL DEFAULT '[]'::jsonb;
+
+-- One row per "move this forward" review: what it reported, what it changed, what it cost.
+CREATE TABLE IF NOT EXISTS web_reviews (
+  id             SERIAL PRIMARY KEY,
+  thread_id      INTEGER NOT NULL REFERENCES web_threads(id) ON DELETE CASCADE,
+  status         TEXT NOT NULL CHECK (status IN ('ok','skipped','failed')),
+  report         JSONB NOT NULL DEFAULT '{}'::jsonb,
+  changes        JSONB NOT NULL DEFAULT '{}'::jsonb,
+  model          TEXT,
+  input_tokens   INTEGER,
+  output_tokens  INTEGER,
+  searches       INTEGER,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_web_reviews_thread ON web_reviews(thread_id, created_at);

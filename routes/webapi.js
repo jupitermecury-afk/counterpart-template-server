@@ -14,6 +14,8 @@ const { pool } = require('../db');
 const { loadBriefing, safeIso } = require('../lib/briefing');
 const { logDecision, decisionsContext, updateDecision, dismissProposal } = require('../lib/decisions');
 const { recordAction, recordClientAction, listActions, actionsContext } = require('../lib/actions');
+const { runReview, resolveStatusForCounterpart } = require('../lib/review');
+const REVIEW_TABLES = { threads: 'web_threads', held: 'web_held_items', verification: 'web_verification_items', decisions: 'web_decisions', actions: 'web_actions', turns: 'web_turns', reviews: 'web_reviews' };
 const ACTION_TABLES = { actions: 'web_actions', artifacts: 'web_artifacts', threads: 'web_threads' };
 const DECISION_TABLES = { decisions: 'web_decisions', threads: 'web_threads' };
 const { streamCounterpartReply, fileIdsFromServerBlock, fetchGeneratedFile, deleteGeneratedFile } = require('../lib/claude');
@@ -475,7 +477,7 @@ router.post('/threads/:id/messages', asyncRoute(async (req, res) => {
       } else if (call.name === 'resolve_verification') {
         await pool.query(
           `UPDATE web_verification_items SET status = $1, updated_at = now() WHERE thread_id = $2 AND claim_text = $3`,
-          [call.input.status, threadId, call.input.claim_text]
+          [await resolveStatusForCounterpart(pool, 'web_verification_items', threadId, call.input.claim_text, call.input.status), threadId, call.input.claim_text]
         );
       } else if (call.name === 'update_held_thread') {
         const existing = await pool.query(
@@ -547,6 +549,21 @@ router.post('/threads/:id/summarise', asyncRoute(async (req, res) => {
   }
 }));
 
+// "Move this forward": a bounded, person-triggered review pass. Researches open claims, keeps
+// steps current, and reports what it handled and what needs the person. Cannot send anything.
+router.post('/threads/:id/review', asyncRoute(async (req, res) => {
+  const threadId = +req.params.id;
+  if (!(await assertOwnedThread(threadId, req.accessKeyId))) return res.status(404).json({ error: 'not found' });
+  try {
+    const r = await runReview({ pool, tables: REVIEW_TABLES, threadId });
+    if (r.error) return res.status(r.status || 500).json({ error: r.error });
+    res.json({ report: r.report, changes: r.changes, skipped: !!r.skipped, unchanged: !!r.unchanged });
+  } catch (err) {
+    console.error('[review] failed:', err.message);
+    res.status(502).json({ error: 'The review could not finish. Anything it had already recorded is kept; try again in a moment.' });
+  }
+}));
+
 // A device reports something the person did with an artifact (opened it in their mail app,
 // added it to their calendar, shared it). The description is built from the stored artifact.
 router.post('/threads/:id/actions', asyncRoute(async (req, res) => {
@@ -584,7 +601,7 @@ router.delete('/decisions/:id', asyncRoute(async (req, res) => {
 router.get('/threads/:id/briefing', asyncRoute(async (req, res) => {
   const threadId = +req.params.id;
   if (!(await assertOwnedThread(threadId, req.accessKeyId))) return res.status(404).json({ error: 'not found' });
-  res.json(await loadBriefing(pool, { threads: 'web_threads', held: 'web_held_items', verification: 'web_verification_items', decisions: 'web_decisions' }, threadId));
+  res.json(await loadBriefing(pool, { threads: 'web_threads', held: 'web_held_items', verification: 'web_verification_items', decisions: 'web_decisions', reviews: 'web_reviews' }, threadId));
 }));
 
 // ── Verification holds ───────────────────────────────────────────────────────
