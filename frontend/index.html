@@ -1030,9 +1030,11 @@ function reportAction(type,docId){
 // WhatsApp via a plain link: it opens WhatsApp with the text filled in and the person picks the
 // contact and presses send. Text only (a link cannot carry a file), and long text is cut.
 const WA_MAX=3500;
+// WhatsApp bolds with single asterisks and has no headings: turn **bold** into *bold* and drop "#".
+function waFormat(t){ return String(t).replace(/\*\*(.+?)\*\*/g,"*$1*").replace(/^#{1,6}\s+/gm,""); }
 function whatsappDoc(id){
   const d=getDoc(id); if(!d)return;
-  const full=`${d.title?d.title+"\n\n":""}${bodyOf(d)}`.trim();
+  const full=waFormat(`${d.title?d.title+"\n\n":""}${bodyOf(d)}`).trim();
   const cut=full.length>WA_MAX;
   const text=cut?full.slice(0,WA_MAX).replace(/\s+\S*$/,"")+"…":full;
   window.open(`https://wa.me/?text=${encodeURIComponent(text)}`,"_blank","noopener");
