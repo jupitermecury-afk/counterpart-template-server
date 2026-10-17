@@ -283,6 +283,8 @@ button{font-family:inherit}
           <button class="mode-switch" id="handsfree-btn" onclick="toggleHandsFree()">Hands-free: off</button>
           <button class="mode-switch" id="end-convo" onclick="endConversation()" style="display:none">End conversation</button>
           <button class="mode-switch" onclick="setMode('text')">Type instead</button>
+          <button class="mode-switch" id="briefing-btn" onclick="speakBriefing()">Where do things stand?</button>
+          <button class="mode-switch" id="deeper-btn" onclick="toggleDeeper()">Deeper thinking: off</button>
         </div>
       </div>
       <div class="text-zone" id="text-zone" style="display:none">
@@ -334,6 +336,8 @@ async function apiGet(path){ const r=await fetch(`${SERVER}/webapi${path}`,{head
 async function apiPost(path,body){ const r=await fetch(`${SERVER}/webapi${path}`,{method:"POST",headers:authHeaders(),body:JSON.stringify(body||{})}); if(!r.ok) throw new Error("request failed"); return r.json(); }
 async function apiPatch(path,body){ const r=await fetch(`${SERVER}/webapi${path}`,{method:"PATCH",headers:authHeaders(),body:JSON.stringify(body||{})}); if(!r.ok) throw new Error("request failed"); return r.json(); }
 async function apiDelete(path){ const r=await fetch(`${SERVER}/webapi${path}`,{method:"DELETE",headers:authHeaders()}); if(!r.ok) throw new Error("request failed"); return r.json(); }
+// A key has a daily ceiling on what it can spend. Say so plainly instead of "something went wrong".
+async function limitMessage(response){ let m="You have reached today's limit for this key. It resets at midnight UTC."; try{ const j=await response.json(); if(j&&j.error) m=j.error; }catch(e){} return m; }
 async function verifyKeyServer(key){
   try{ const r=await fetch(`${SERVER}/webapi/auth/verify`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({key})}); const d=await r.json(); return !!d.ok; }
   catch(e){ return false; }
@@ -343,7 +347,7 @@ function storeAccess(key){ try{ localStorage.setItem(VOICE_ACCESS_STORE,key); }c
 /* ════════ STATE ════════ */
 let currentKey="";
 let activeThreadId=null;
-let lang="en", mode="voice", ttsEnabled=true;
+let lang="en", mode="voice", ttsEnabled=true, deeper=false;
 let recognition=null;
 
 function NS(suffix){ return `cpv_${suffix}_v1__${currentKey}`; }
@@ -352,9 +356,9 @@ function loadPrefs(){
     const p=JSON.parse(localStorage.getItem(NS("prefs"))||"null");
     if(p) return p;
   }catch(e){}
-  return { lang:"en", mode:"voice", tts:true, handsFree:false };
+  return { lang:"en", mode:"voice", tts:true, handsFree:false, deeper:false };
 }
-function savePrefs(){ try{ localStorage.setItem(NS("prefs"),JSON.stringify({lang,mode,tts:ttsEnabled,handsFree})); }catch(e){} }
+function savePrefs(){ try{ localStorage.setItem(NS("prefs"),JSON.stringify({lang,mode,tts:ttsEnabled,handsFree,deeper})); }catch(e){} }
 
 /* ════════ UTIL ════════ */
 function esc(t){ return (t||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
@@ -481,6 +485,7 @@ function updateConvoUI(){
   hf.textContent="Hands-free: "+(handsFree?"on":"off");
   hf.classList.toggle("on",handsFree);
   document.getElementById("end-convo").style.display = convoActive ? "" : "none";
+  const dp=document.getElementById("deeper-btn"); if(dp){ dp.textContent="Deeper thinking: "+(deeper?"on":"off"); dp.classList.toggle("on",deeper); }
 }
 
 /* ════════ SPOKEN OUTPUT (sentence by sentence, as the reply streams) ════════ */
@@ -611,9 +616,10 @@ async function sendMessage(text){
     }
     const response=await fetch(`${SERVER}/webapi/threads/${activeThreadId}/messages`,{
       method:"POST", headers:authHeaders(), signal,
-      body:JSON.stringify({text, depth:"spoken", lang})
+      body:JSON.stringify({text, depth:deeper?"spoken_deep":"spoken", lang})
     });
     removeWaiting();
+    if(response.status===429){ const m=await limitMessage(response); appendCpMsg(m,false); stopSpeaking(); spokenIdx=0; enqueueSpeech(m); streamDone=true; maybeFinish(); return; }
     if(!response.ok || !response.body) throw new Error("bad response");
     cp=beginCpMsg();
     const reader=response.body.getReader(); const decoder=new TextDecoder(); let buf="";
@@ -745,6 +751,42 @@ function toggleHandsFree(){
   updateConvoUI();
   if(handsFree) toast("Hands-free on: tap the circle once, then just talk. I'll listen again after each reply.",4500);
 }
+function toggleDeeper(){
+  deeper=!deeper; savePrefs(); updateConvoUI();
+  toast(deeper ? "Deeper thinking on: replies take a little longer and use more of your allowance." : "Deeper thinking off: quick, everyday replies.", 4200);
+}
+// What is waiting on the person, said aloud. It is read from the situation's own records, so it costs
+// nothing and cannot get the facts wrong; the wording is plain English whatever language is chosen.
+function briefingToSpeech(b){
+  if(!b) return "I couldn't get the picture just now.";
+  const clean=(i)=>String(i&&i.text||"").replace(/\s+/g," ").trim();
+  const some=(arr)=>(arr||[]).slice(0,2).map(clean).filter(Boolean);
+  const list=(a)=>a.length>1 ? a[0]+", and "+a[1] : a[0];
+  const parts=[];
+  const od=some(b.overdue), soon=some(b.due_soon), blocked=some(b.blocked);
+  const unc=(b.unconfirmed||[]).length, dec=(b.proposed_decisions||[]).length;
+  if(od.length) parts.push("Overdue: "+list(od)+".");
+  if(soon.length) parts.push("Coming up: "+list(soon)+".");
+  if(blocked.length) parts.push("Waiting on someone else: "+list(blocked)+".");
+  if(unc) parts.push(unc+" thing"+(unc>1?"s":"")+" you haven't confirmed yet.");
+  if(dec) parts.push(dec+" decision"+(dec>1?"s":"")+" waiting for your yes.");
+  const head=String(b.headline||"").trim();
+  if(!parts.length) return head || "Nothing is waiting on you right now.";
+  const text=(head?head+" ":"")+parts.join(" ");
+  return text.length>600 ? text.slice(0,600).replace(/\s+\S*$/,"")+"." : text;
+}
+async function speakBriefing(){
+  if(!activeThreadId){ const m="There is nothing open yet. Tell me what you're carrying and I'll keep track of it."; appendCpMsg(m,false); speakInEnglish(m); return; }
+  try{
+    const b=await apiGet(`/threads/${activeThreadId}/briefing`);
+    const text=briefingToSpeech(b);
+    appendCpMsg(text,false); speakInEnglish(text);
+  }catch(e){ toast("Couldn't get that just now"); }
+}
+function speakInEnglish(text){ const keep=lang; lang="en"; try{ speak(text); }finally{ lang=keep; } }
+function voicePrivacy(){
+  infoModal("How voice is handled","Your browser turns your speech into text. In Chrome that is done by Google's speech service; in Safari, by Apple's. Counterpart only ever receives the text, never the sound, and nothing you say is stored as audio. Spoken replies are read out by your own device.",true);
+}
 function onLangChange(v){
   lang=v; savePrefs();
   if(recognition) recognition.lang=speechLocale();
@@ -777,6 +819,7 @@ function openVMenu(e){
   m.innerHTML=`<div class="menu-note">Signed in with key ${esc(maskKey(currentKey))}</div><hr>
     <button onclick="closeVMenu();newConvo()"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Start a new conversation</button>
     <button onclick="location.href='index.html'"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg>Open the full workspace</button>
+    <button onclick="closeVMenu();voicePrivacy()"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 16v-5M12 8h.01"/></svg>How voice is handled</button>
     <button class="danger" onclick="closeVMenu();signOut()"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>Sign out</button>`;
   const b=e.currentTarget.getBoundingClientRect();
   m.style.display="block"; m.style.top=(b.bottom+6)+"px"; m.style.right=Math.max(8,innerWidth-b.right)+"px"; m.classList.add("open");
@@ -815,7 +858,7 @@ async function enterApp(){
   document.getElementById("app-shell").classList.add("ready");
 
   const p=loadPrefs();
-  lang=p.lang||"en"; mode=p.mode||"voice"; ttsEnabled=(p.tts!==false); handsFree=!!p.handsFree; updateConvoUI(); setPhase("idle");
+  lang=p.lang||"en"; mode=p.mode||"voice"; ttsEnabled=(p.tts!==false); handsFree=!!p.handsFree; deeper=!!p.deeper; updateConvoUI(); setPhase("idle");
   document.getElementById("lang-select").value=lang;
   updateTtsBtn();
 

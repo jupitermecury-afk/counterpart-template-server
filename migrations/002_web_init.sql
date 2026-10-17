@@ -174,3 +174,22 @@ CREATE TABLE IF NOT EXISTS web_reviews (
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_web_reviews_thread ON web_reviews(thread_id, created_at);
+
+-- What each key costs to run, by day and mode. Counts only: no message content, no thread, no person.
+-- It exists so pricing and fair-use limits can be set from real numbers, and so a leaked key cannot
+-- run up an unbounded bill.
+CREATE TABLE IF NOT EXISTS web_usage (
+  id                  SERIAL PRIMARY KEY,
+  access_key_id       INTEGER NOT NULL REFERENCES web_access_keys(id) ON DELETE CASCADE,
+  day                 DATE NOT NULL DEFAULT ((now() AT TIME ZONE 'utc')::date),
+  mode                TEXT NOT NULL CHECK (mode IN ('spoken','typed')),
+  model               TEXT NOT NULL,
+  turns               INTEGER NOT NULL DEFAULT 0,
+  input_tokens        BIGINT NOT NULL DEFAULT 0,
+  cache_write_tokens  BIGINT NOT NULL DEFAULT 0,
+  cache_read_tokens   BIGINT NOT NULL DEFAULT 0,
+  output_tokens       BIGINT NOT NULL DEFAULT 0,
+  est_cost_usd        NUMERIC(12,6) NOT NULL DEFAULT 0,
+  UNIQUE (access_key_id, day, mode, model)
+);
+CREATE INDEX IF NOT EXISTS idx_web_usage_key_day ON web_usage(access_key_id, day);

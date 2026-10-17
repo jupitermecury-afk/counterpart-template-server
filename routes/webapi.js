@@ -16,6 +16,7 @@ const { logDecision, decisionsContext, updateDecision, dismissProposal } = requi
 const { recordAction, recordClientAction, listActions, actionsContext } = require('../lib/actions');
 const { runReview, resolveStatusForCounterpart } = require('../lib/review');
 const { turnSettings } = require('../lib/voice');
+const { recordUsage, checkDailyCap, usageSummary } = require('../lib/usage');
 const REVIEW_TABLES = { threads: 'web_threads', held: 'web_held_items', verification: 'web_verification_items', decisions: 'web_decisions', actions: 'web_actions', turns: 'web_turns', reviews: 'web_reviews' };
 const ACTION_TABLES = { actions: 'web_actions', artifacts: 'web_artifacts', threads: 'web_threads' };
 const DECISION_TABLES = { decisions: 'web_decisions', threads: 'web_threads' };
@@ -400,6 +401,12 @@ router.post('/threads/:id/messages', asyncRoute(async (req, res) => {
     return res.status(400).json({ error: 'empty message' });
   }
 
+  // A ceiling on what one key can spend in a day, so a leaked or runaway key cannot run up a bill.
+  const gate = await checkDailyCap(pool, req.accessKeyId);
+  if (!gate.ok) {
+    return res.status(429).json({ error: "You have reached today's limit for this key. It resets at midnight UTC.", reason: 'daily_cap' });
+  }
+
   await pool.query(
     `INSERT INTO web_turns (thread_id, role, content, attachment_label) VALUES ($1, 'person', $2, $3)`,
     [threadId, text || '', attachment_label || null]
@@ -449,7 +456,7 @@ router.post('/threads/:id/messages', asyncRoute(async (req, res) => {
 
   try {
     const turn = turnSettings(depth, { model: MODEL, depthTokens: DEPTH_TOKENS, lang });
-    const { fullText, toolCalls } = await streamCounterpartReply({
+    const { fullText, toolCalls, usage } = await streamCounterpartReply({
       model: turn.model,
       maxTokens: turn.maxTokens,
       messages,
@@ -463,6 +470,7 @@ router.post('/threads/:id/messages', asyncRoute(async (req, res) => {
       `INSERT INTO web_turns (thread_id, role, content) VALUES ($1, 'counterpart', $2)`,
       [threadId, fullText]
     );
+    await recordUsage(pool, req.accessKeyId, { mode: turn.spoken ? 'spoken' : 'typed', model: turn.model, usage });
 
     const proposedDecisions = [];
     for (const call of toolCalls) {
@@ -597,6 +605,11 @@ router.delete('/decisions/:id', asyncRoute(async (req, res) => {
   const ok = await dismissProposal(pool, DECISION_TABLES, +req.params.id, req.accessKeyId);
   if (!ok) return res.status(404).json({ error: 'not found' });
   res.json({ ok: true });
+}));
+
+// What this key has used (counts and an estimated cost, never content).
+router.get('/usage', asyncRoute(async (req, res) => {
+  res.json(await usageSummary(pool, req.accessKeyId));
 }));
 
 // Where things stand in one situation: overdue, due soon, waiting on someone, not yet confirmed.
