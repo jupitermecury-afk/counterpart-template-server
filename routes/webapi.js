@@ -14,7 +14,7 @@ const { pool } = require('../db');
 const { loadBriefing, safeIso } = require('../lib/briefing');
 const { logDecision, decisionsContext, updateDecision, dismissProposal } = require('../lib/decisions');
 const { recordAction, recordClientAction, listActions, actionsContext } = require('../lib/actions');
-const { runReview, resolveStatusForCounterpart } = require('../lib/review');
+const { runReview, resolveStatusForCounterpart, REVIEW_MODEL } = require('../lib/review');
 const { turnSettings } = require('../lib/voice');
 const { recordUsage, checkDailyCap, usageSummary } = require('../lib/usage');
 const REVIEW_TABLES = { threads: 'web_threads', held: 'web_held_items', verification: 'web_verification_items', decisions: 'web_decisions', actions: 'web_actions', turns: 'web_turns', reviews: 'web_reviews' };
@@ -564,9 +564,13 @@ router.post('/threads/:id/summarise', asyncRoute(async (req, res) => {
 router.post('/threads/:id/review', asyncRoute(async (req, res) => {
   const threadId = +req.params.id;
   if (!(await assertOwnedThread(threadId, req.accessKeyId))) return res.status(404).json({ error: 'not found' });
+  // A review is the dearest single thing a key can ask for, so it counts toward the daily limit too.
+  const gate = await checkDailyCap(pool, req.accessKeyId);
+  if (!gate.ok) return res.status(429).json({ error: "You have reached today's limit for this key. It resets at midnight UTC.", reason: 'daily_cap' });
   try {
     const r = await runReview({ pool, tables: REVIEW_TABLES, threadId });
     if (r.error) return res.status(r.status || 500).json({ error: r.error });
+    if (r.usage) await recordUsage(pool, req.accessKeyId, { mode: 'typed', model: REVIEW_MODEL, usage: { input: r.usage.input, output: r.usage.output, searches: r.usage.searches } });
     res.json({ report: r.report, changes: r.changes, skipped: !!r.skipped, unchanged: !!r.unchanged });
   } catch (err) {
     console.error('[review] failed:', err.message);

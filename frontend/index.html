@@ -671,7 +671,7 @@ const ACCESS_STORE = "cp_access_v3"; // localStorage's only remaining job: the k
 
 function authHeaders(){ return {"Content-Type":"application/json","x-counterpart-key":currentKey}; }
 async function apiGet(path){ const r=await fetch(`${SERVER}/webapi${path}`,{headers:authHeaders()}); if(!r.ok) throw new Error("request failed"); return r.json(); }
-async function apiPost(path,body,signal){ const r=await fetch(`${SERVER}/webapi${path}`,{method:"POST",headers:authHeaders(),body:JSON.stringify(body||{}),signal}); if(!r.ok) throw new Error("request failed"); return r.json(); }
+async function apiPost(path,body,signal){ const r=await fetch(`${SERVER}/webapi${path}`,{method:"POST",headers:authHeaders(),body:JSON.stringify(body||{}),signal}); if(!r.ok){ const e=new Error("request failed"); e.status=r.status; try{ e.serverMessage=(await r.json()).error; }catch(x){} throw e; } return r.json(); }
 async function apiPatch(path,body){ const r=await fetch(`${SERVER}/webapi${path}`,{method:"PATCH",headers:authHeaders(),body:JSON.stringify(body||{})}); if(!r.ok) throw new Error("request failed"); return r.json(); }
 async function apiDelete(path){ const r=await fetch(`${SERVER}/webapi${path}`,{method:"DELETE",headers:authHeaders()}); if(!r.ok) throw new Error("request failed"); return r.json(); }
 // A key has a daily ceiling on what it can spend. Say so plainly instead of "something went wrong".
@@ -1219,7 +1219,8 @@ async function moveForward(){
     await refreshActiveThread();
     loadBriefing(id);
   }catch(e){
-    slot.innerHTML='<div class="review-card"><div class="review-head">I couldn\'t finish that just now. Anything I had already recorded is kept. Try again in a moment.</div></div>';
+    const msg=(e&&e.status===429&&e.serverMessage)?e.serverMessage:"I couldn't finish that just now. Anything I had already recorded is kept. Try again in a moment.";
+    slot.innerHTML='<div class="review-card"><div class="review-head">'+esc(msg)+'</div></div>';
   }
   reviewing=false; btn.disabled=false; btn.textContent="Move this forward";
 }
