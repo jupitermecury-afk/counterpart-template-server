@@ -355,10 +355,6 @@ function loadPrefs(){
   return { lang:"en", mode:"voice", tts:true, handsFree:false };
 }
 function savePrefs(){ try{ localStorage.setItem(NS("prefs"),JSON.stringify({lang,mode,tts:ttsEnabled,handsFree})); }catch(e){} }
-async function syncLangContext(){
-  if(!activeThreadId) return;
-  try{ await apiPatch(`/threads/${activeThreadId}`,{context:langInstruction()}); }catch(e){}
-}
 
 /* ════════ UTIL ════════ */
 function esc(t){ return (t||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
@@ -378,11 +374,6 @@ function formatText(t){
   }).join("");
 }
 function speechLocale(){ const l=LANGS.find(x=>x.code===lang); return l?l.speech:"en-US"; }
-function langInstruction(){
-  const l=LANGS.find(x=>x.code===lang);
-  if(!l || l.code==="en") return "";
-  return `\n\nThe person has set their preferred language to ${l.name||l.label}. Respond in ${l.name||l.label} unless they switch languages themselves.`;
-}
 
 /* ════════ TOAST / MODALS ════════ */
 function toast(msg,dur=2200){ const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),dur); }
@@ -617,11 +608,10 @@ async function sendMessage(text){
     if(!activeThreadId){
       const d=await apiPost("/threads",{});
       activeThreadId=d.thread.id;
-      await syncLangContext();
     }
     const response=await fetch(`${SERVER}/webapi/threads/${activeThreadId}/messages`,{
       method:"POST", headers:authHeaders(), signal,
-      body:JSON.stringify({text, depth:"spoken"})
+      body:JSON.stringify({text, depth:"spoken", lang})
     });
     removeWaiting();
     if(!response.ok || !response.body) throw new Error("bad response");
@@ -758,7 +748,6 @@ function toggleHandsFree(){
 function onLangChange(v){
   lang=v; savePrefs();
   if(recognition) recognition.lang=speechLocale();
-  syncLangContext();
   const l=LANGS.find(x=>x.code===lang);
   if(l && l.exp) toast(`${l.name} is experimental: replies may be unreliable. Please double-check anything important.`,6000);
 }
@@ -771,16 +760,14 @@ function updateTtsBtn(){
   b.classList.toggle("on",ttsEnabled);
   b.title = ttsEnabled ? "Spoken replies: on (tap to mute)" : "Spoken replies: off (tap to enable)";
 }
-function clearConvo(){
-  if(!activeThreadId){ toast("Nothing to clear"); return; }
-  confirmModal("Clear this conversation?","This removes everything said so far. It can't be undone.","Clear",async()=>{
-    endConversation();
-    await apiDelete(`/threads/${activeThreadId}`);
-    activeThreadId=null;
-    document.getElementById("feed").innerHTML="";
-    document.getElementById("welcome").style.display="block";
-    toast("Cleared");
-  });
+// Starting fresh leaves the old situation exactly where it is in the workspace; nothing is deleted.
+function newConvo(){
+  if(!activeThreadId && !document.getElementById("feed").children.length){ toast("This is already a fresh start"); return; }
+  endConversation();
+  activeThreadId=null;
+  document.getElementById("feed").innerHTML="";
+  document.getElementById("welcome").style.display="block";
+  toast("New conversation. The last one is still in your workspace.",3500);
 }
 function maskKey(k){ return !k||k.length<=8?(k||""):k.slice(0,4)+"…"+k.slice(-4); }
 function closeVMenu(){ const m=document.getElementById("v-menu"); m.classList.remove("open"); m.style.display=""; }
@@ -788,7 +775,7 @@ function openVMenu(e){
   e.stopPropagation();
   const m=document.getElementById("v-menu");
   m.innerHTML=`<div class="menu-note">Signed in with key ${esc(maskKey(currentKey))}</div><hr>
-    <button onclick="closeVMenu();clearConvo()"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>Clear this conversation</button>
+    <button onclick="closeVMenu();newConvo()"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Start a new conversation</button>
     <button onclick="location.href='index.html'"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg>Open the full workspace</button>
     <button class="danger" onclick="closeVMenu();signOut()"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>Sign out</button>`;
   const b=e.currentTarget.getBoundingClientRect();
@@ -835,7 +822,6 @@ async function enterApp(){
   const active=await apiGet("/threads/active");
   activeThreadId = active.thread ? active.thread.id : null;
   renderConvo(active.turns || []);
-  if(activeThreadId) await syncLangContext();
   setMode(mode);
   focusInput();
 }

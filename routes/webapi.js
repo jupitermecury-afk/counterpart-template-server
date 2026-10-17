@@ -395,7 +395,7 @@ router.post('/threads/:id/messages', asyncRoute(async (req, res) => {
   const threadId = +req.params.id;
   if (!(await assertOwnedThread(threadId, req.accessKeyId))) return res.status(404).json({ error: 'not found' });
 
-  const { text, depth, attachments, attachment_label } = req.body || {};
+  const { text, depth, lang, attachments, attachment_label } = req.body || {};
   if (!text && !(attachments && attachments.length)) {
     return res.status(400).json({ error: 'empty message' });
   }
@@ -448,7 +448,7 @@ router.post('/threads/:id/messages', asyncRoute(async (req, res) => {
   const generatedFileIds = new Set();
 
   try {
-    const turn = turnSettings(depth, { model: MODEL, depthTokens: DEPTH_TOKENS });
+    const turn = turnSettings(depth, { model: MODEL, depthTokens: DEPTH_TOKENS, lang });
     const { fullText, toolCalls } = await streamCounterpartReply({
       model: turn.model,
       maxTokens: turn.maxTokens,
