@@ -755,11 +755,21 @@ document.addEventListener("visibilitychange",()=>{ if(document.hidden && convoAc
 function onKeyInput(input){ document.getElementById("flame-svg").classList.toggle("alive",input.value.length>0);
   const h=document.getElementById("key-hint"); h.className="key-hint"; h.innerHTML="&nbsp;"; input.classList.remove("wrong"); }
 function onKeyDown(e){ if(e.key==="Enter"){ e.preventDefault(); attemptEntry(); } }
+// Typed keys pick up stray spaces and typographic dashes, and the box shows capitals whatever was
+// typed while the server compares exactly. So: clean the text, try it as typed, then in capitals.
+function normalizeKey(v){ let s=String(v||""); try{ s=s.normalize("NFKC"); }catch(e){} return s.replace(/[‐-―−﹘﹣－]/g,"-").replace(/\s+/g,""); }
+async function resolveTypedKey(raw){
+  const base=normalizeKey(raw); if(!base) return null;
+  if(await verifyKeyServer(base)) return base;
+  const up=base.toUpperCase();
+  if(up!==base && await verifyKeyServer(up)) return up;
+  return null;
+}
 async function attemptEntry(){
   const input=document.getElementById("key-input"), hint=document.getElementById("key-hint");
-  const val=input.value.trim(); if(!val)return;
+  if(!normalizeKey(input.value)) return;
   hint.className="key-hint"; hint.textContent="checking…";
-  const ok=await verifyKeyServer(val);
+  const val=await resolveTypedKey(input.value); const ok=!!val;
   if(ok){ storeAccess(val); currentKey=val; input.style.opacity="0"; document.getElementById("flame-svg").style.opacity="0";
     setTimeout(enterApp,380); }
   else{ input.classList.add("wrong"); hint.className="key-hint err"; hint.textContent="That key isn't recognised or has expired.";
@@ -770,7 +780,7 @@ async function attemptEntry(){
 async function enterApp(){
   document.getElementById("key-screen").classList.add("gone");
   document.getElementById("app-shell").classList.add("ready");
-  document.getElementById("key-label").textContent=currentKey;
+  document.getElementById("key-label").textContent=currentKey.length>8?currentKey.slice(0,4)+"…"+currentKey.slice(-4):currentKey;
 
   const p=loadPrefs();
   lang=p.lang||"en"; mode=p.mode||"voice"; ttsEnabled=(p.tts!==false); handsFree=!!p.handsFree; updateConvoUI(); setPhase("idle");
