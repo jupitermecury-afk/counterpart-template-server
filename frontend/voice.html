@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
 <title>Counterpart — Voice</title>
 <link rel="manifest" href="manifest-voice.json">
 <meta name="theme-color" content="#0a2540">
@@ -173,7 +173,7 @@ button{font-family:inherit}
 .send-btn svg{width:15px;height:15px;fill:var(--earth)}
 
 /* ════ TOAST / MODAL ════ */
-.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--earth-lift);border:1px solid var(--ember);color:var(--cream);font-size:12px;padding:8px 16px;border-radius:7px;opacity:0;transition:all 0.3s;pointer-events:none;white-space:nowrap;z-index:120}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--earth-lift);border:1px solid var(--ember);color:var(--cream);font-size:12px;padding:8px 16px;border-radius:7px;opacity:0;transition:all 0.3s;pointer-events:none;white-space:normal;text-align:center;width:max-content;max-width:calc(100vw - 32px);z-index:120}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .modal-overlay{position:fixed;inset:0;background:rgba(10,6,2,0.85);z-index:80;display:none;align-items:center;justify-content:center;padding:1.5rem}
 .modal-overlay.open{display:flex}
@@ -191,10 +191,38 @@ button{font-family:inherit}
 
 /* ════ RESPONSIVE ════ */
 @media(max-width:560px){
-  .welcome-head{font-size:36px}
-  .convo-inner{padding:1.5rem 1rem 1rem}
+  .welcome-head{font-size:34px}
+  .convo-inner{padding:1.2rem 0.9rem 0.8rem}
   .v-controls{padding:0.5rem 1rem 1rem}
-  .lang-select{display:none}
+  .v-header{padding:0.5rem 0.7rem;gap:6px}
+  .hdr-pill{display:none}
+  .wm-name{font-size:18px}
+  .lang-select{width:100px;max-width:100px}
+  .msg-person-bubble{max-width:92%}
+}
+@supports(height:100dvh){ body,.app-shell{height:100dvh} }
+/* the header menu */
+.ctx-menu{position:fixed;z-index:110;background:var(--earth-light);border:1px solid var(--cream-faint);border-radius:8px;padding:5px;min-width:210px;display:none;box-shadow:0 8px 30px rgba(10,37,64,0.18)}
+.ctx-menu.open{display:block;animation:riseIn 0.15s ease}
+.ctx-menu button{display:flex;align-items:center;gap:9px;width:100%;background:transparent;border:none;color:var(--cream-mid);font-family:inherit;font-size:13px;padding:9px 10px;border-radius:6px;cursor:pointer;text-align:left;transition:all 0.15s}
+.ctx-menu button:hover{background:var(--earth-mid);color:var(--cream)}
+.ctx-menu button.danger:hover{color:var(--red-err)}
+.ctx-menu button svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;flex-shrink:0}
+.ctx-menu hr{border:none;border-top:1px solid var(--cream-faint);margin:4px 0}
+.ctx-menu .menu-note{padding:6px 10px;font-size:11.5px;color:var(--cream-dim)}
+/* touch screens: thumb-sized controls, 16px text so phones do not zoom on focus */
+@media(pointer:coarse){
+  .icon-btn{min-width:42px;min-height:42px;padding:9px}
+  .lang-select{height:42px;font-size:16px;padding:0 8px}
+  .mode-switch{font-size:13.5px;padding:11px 10px}
+  .mode-row{gap:6px}
+  .chip-act{padding:10px 12px;font-size:13px}
+  .send-btn{width:46px;height:46px}
+  .noted-item{font-size:13px}
+  .modal-btn{padding:12px 20px;font-size:14px}
+  .modal-input{font-size:16px}
+  .ctx-menu button{padding:13px 12px;font-size:14.5px}
+  .v-controls{padding-bottom:calc(1rem + env(safe-area-inset-bottom))}
 }
 </style>
 </head>
@@ -228,11 +256,9 @@ button{font-family:inherit}
     <button class="icon-btn" id="tts-btn" onclick="toggleTTS()" title="Spoken replies">
       <svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5z" fill="currentColor" stroke="none"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18 6a8 8 0 0 1 0 12"/></svg>
     </button>
-    <button class="icon-btn" onclick="clearConvo()" title="Clear this conversation">
-      <svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6"/></svg>
+    <button class="icon-btn" onclick="openVMenu(event)" title="More" aria-label="More">
+      <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
     </button>
-    <div class="key-badge"><span class="kd"></span><span id="key-label"></span></div>
-    <button class="foot-link" onclick="signOut()">Sign out</button>
   </header>
 
   <div class="v-main" id="v-main">
@@ -272,6 +298,7 @@ button{font-family:inherit}
 
 <!-- toast / modal -->
 <div class="toast" id="toast"></div>
+<div class="ctx-menu" id="v-menu"></div>
 <div class="modal-overlay" id="modal">
   <div class="modal">
     <div class="modal-title" id="modal-title"></div>
@@ -494,7 +521,8 @@ function enqueueSpeech(text){
   u.onstart=()=>{ if(gen===speechGen && phase!=="listening") setPhase("speaking"); };
   const done=()=>{ if(gen!==speechGen) return; speechPending=Math.max(0,speechPending-1); maybeFinish(); };
   u.onend=done; u.onerror=done;
-  speechSynthesis.speak(u);
+  // A browser that refuses to speak must never cut the written reply short.
+  try{ speechSynthesis.speak(u); }catch(e){ done(); }
 }
 function stopSpeaking(){
   speechGen++; speechPending=0;
@@ -523,7 +551,7 @@ function replaySpeak(btn){
   const u=new SpeechSynthesisUtterance(cleanForSpeech(btn.dataset.text)); u.lang=speechLocale(); u.rate=0.96;
   const v=pickVoice(); if(v) u.voice=v;
   u.onend=()=>btn.classList.remove("on"); u.onerror=()=>btn.classList.remove("on");
-  speechSynthesis.speak(u);
+  try{ speechSynthesis.speak(u); }catch(e){ btn.classList.remove("on"); }
 }
 
 /* ════════ SEND ════════ */
@@ -536,7 +564,7 @@ function beginCpMsg(){
 }
 // What the model recorded during this reply. Voice has no workspace, so show it right here —
 // the things it can't confirm and the steps it is holding — instead of leaving them invisible.
-function notedHTML(flags,steps,decs){
+function notedHTML(flags,steps,decs,docs){
   const rows=[];
   flags.forEach(f=>rows.push(`<div class="noted-item verify"><b>Confirm</b>${esc(f.claim_text||"")}${f.confirm_via?` — <i>${esc(f.confirm_via)}</i>`:""}</div>`));
   steps.forEach(s=>{
@@ -546,6 +574,7 @@ function notedHTML(flags,steps,decs){
     rows.push(`<div class="noted-item"><b>Step</b>${bits.join(" · ")}</div>`);
   });
   (decs||[]).forEach(d=>rows.push(`<div class="noted-item verify" id="dec-${d.id}"><b>Decision</b>${esc(d.decision||"")}${d.rationale?` — <i>${esc(d.rationale)}</i>`:""}<div class="dec-actions"><button class="chip-act" onclick="confirmVoiceDecision(${d.id})">Yes, that's the decision</button><button class="chip-act" onclick="dismissVoiceDecision(${d.id})">Not a decision</button></div></div>`));
+  (docs||[]).forEach(d=>rows.push(`<div class="noted-item"><b>Document</b>${esc(d.title||d.subject||"saved")} — <a href="index.html" style="color:var(--ember-warm)">open it in the workspace</a></div>`));
   return rows.length ? `<div class="noted">${rows.join("")}</div>` : "";
 }
 function actionsHTML(text){
@@ -554,9 +583,9 @@ function actionsHTML(text){
         <button class="chip-act" onclick="copyText(this)" data-text="${escAttr(text)}"><svg viewBox="0 0 24 24"><path d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12V1zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11v14z"/></svg>Copy</button>
       </div>`;
 }
-function finishCpMsg(cp,text,flags,steps,decs){
+function finishCpMsg(cp,text,flags,steps,decs,docs){
   cp.bubble.innerHTML=formatText(text);
-  cp.extras.innerHTML=notedHTML(flags,steps,decs||[])+actionsHTML(text);
+  cp.extras.innerHTML=notedHTML(flags,steps,decs||[],docs||[])+actionsHTML(text);
   scrollDownSoft();
 }
 async function confirmVoiceDecision(id){
@@ -581,7 +610,8 @@ async function sendMessage(text){
   reqAbort=new AbortController();
   const signal=reqAbort.signal;
   let cp=null, fullText="";
-  const flags=[], steps=[], decs=[];
+  const flags=[], steps=[], decs=[], docs=[];
+  const DOC_TOOLS=new Set(["surface_artifact","prepare_email_draft","prepare_calendar_event"]);
   const FALLBACK="Something went wrong on my end. Try again in a moment — I am still here.";
   try{
     if(!activeThreadId){
@@ -615,23 +645,26 @@ async function sendMessage(text){
         } else if(evt.type==="tool"){
           if(evt.name==="flag_verification") flags.push(evt.input||{});
           else if(evt.name==="update_held_thread") steps.push(evt.input||{});
+          else if(DOC_TOOLS.has(evt.name)) docs.push(evt.input||{});
+        } else if(evt.type==="file"){
+          docs.push({title:"a file"});
         }
       }
     }
     if(!fullText) fullText=FALLBACK;
     feedSpeech(fullText,true);
-    finishCpMsg(cp,fullText,flags,steps,decs);
+    finishCpMsg(cp,fullText,flags,steps,decs,docs);
   }catch(e){
     removeWaiting();
     if(e && e.name==="AbortError"){
       if(cp){
-        if(fullText) finishCpMsg(cp,fullText,flags,steps,decs);
+        if(fullText) finishCpMsg(cp,fullText,flags,steps,decs,docs);
         else { const m=cp.bubble.closest(".msg"); if(m) m.remove(); } // stopped before it said anything
       }
       return; // interruptReply()/endConversation() already reset the phase
     }
     const msg = cp ? FALLBACK : "I lost the connection. Check your internet and try again — I haven't gone anywhere.";
-    if(cp) finishCpMsg(cp,fullText||msg,flags,steps,decs); else appendCpMsg(msg,false);
+    if(cp) finishCpMsg(cp,fullText||msg,flags,steps,decs,docs); else appendCpMsg(msg,false);
     stopSpeaking(); spokenIdx=0; enqueueSpeech(fullText||msg);
   }
   streamDone=true;
@@ -749,6 +782,19 @@ function clearConvo(){
     toast("Cleared");
   });
 }
+function maskKey(k){ return !k||k.length<=8?(k||""):k.slice(0,4)+"…"+k.slice(-4); }
+function closeVMenu(){ const m=document.getElementById("v-menu"); m.classList.remove("open"); m.style.display=""; }
+function openVMenu(e){
+  e.stopPropagation();
+  const m=document.getElementById("v-menu");
+  m.innerHTML=`<div class="menu-note">Signed in with key ${esc(maskKey(currentKey))}</div><hr>
+    <button onclick="closeVMenu();clearConvo()"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>Clear this conversation</button>
+    <button onclick="location.href='index.html'"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg>Open the full workspace</button>
+    <button class="danger" onclick="closeVMenu();signOut()"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>Sign out</button>`;
+  const b=e.currentTarget.getBoundingClientRect();
+  m.style.display="block"; m.style.top=(b.bottom+6)+"px"; m.style.right=Math.max(8,innerWidth-b.right)+"px"; m.classList.add("open");
+}
+document.addEventListener("click",e=>{ if(!e.target.closest("#v-menu")) closeVMenu(); });
 document.addEventListener("visibilitychange",()=>{ if(document.hidden && convoActive) endConversation(); });
 
 /* ════════ KEY SCREEN ════════ */
@@ -780,7 +826,6 @@ async function attemptEntry(){
 async function enterApp(){
   document.getElementById("key-screen").classList.add("gone");
   document.getElementById("app-shell").classList.add("ready");
-  document.getElementById("key-label").textContent=currentKey.length>8?currentKey.slice(0,4)+"…"+currentKey.slice(-4):currentKey;
 
   const p=loadPrefs();
   lang=p.lang||"en"; mode=p.mode||"voice"; ttsEnabled=(p.tts!==false); handsFree=!!p.handsFree; updateConvoUI(); setPhase("idle");
@@ -794,7 +839,7 @@ async function enterApp(){
   setMode(mode);
   focusInput();
 }
-document.addEventListener("keydown",e=>{ if(e.key==="Escape") closeModal(); });
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ closeModal(); closeVMenu(); } });
 (async function boot(){
   document.getElementById("lang-select").innerHTML = LANGS.map(l=>`<option value="${l.code}">${l.label}</option>`).join("");
   try{ currentKey=localStorage.getItem(VOICE_ACCESS_STORE)||""; }catch(e){ currentKey=""; }
