@@ -5,7 +5,12 @@ const { pool } = require('../db');
 const { loadBriefing, safeIso } = require('../lib/briefing');
 const { logDecision, decisionsContext, updateDecision, dismissProposal } = require('../lib/decisions');
 const { recordAction, recordClientAction, listActions, actionsContext } = require('../lib/actions');
-const { runReview, resolveStatusForCounterpart } = require('../lib/review');
+const { runReview, resolveStatusForCounterpart, REVIEW_MODEL } = require('../lib/review');
+const { makeUsage } = require('../lib/usage');
+const { recordUsage, checkDailyCap, usageSummary } = makeUsage('key_usage');
+// The phone app's own daily spend limit. Off (0) by default: only its owner uses it. Set
+// PHONE_DAILY_COST_CAP_USD in Railway to turn a limit on; usage is counted either way.
+const PHONE_DAILY_CAP_USD = Number(process.env.PHONE_DAILY_COST_CAP_USD ?? 0);
 const REVIEW_TABLES = { threads: 'threads', held: 'held_items', verification: 'verification_items', decisions: 'decisions', actions: 'actions', turns: 'turns', reviews: 'reviews' };
 const ACTION_TABLES = { actions: 'actions', artifacts: 'artifacts', threads: 'threads' };
 const DECISION_TABLES = { decisions: 'decisions', threads: 'threads' };
@@ -279,14 +284,23 @@ router.post('/push/register', asyncRoute(async (req, res) => {
 router.post('/threads/:id/review', asyncRoute(async (req, res) => {
   const threadId = +req.params.id;
   if (!(await assertOwnedThread(threadId, req.accessKeyId))) return res.status(404).json({ error: 'not found' });
+  // A review is the dearest single thing a key can ask for, so it counts toward the daily limit too.
+  const gate = await checkDailyCap(pool, req.accessKeyId, PHONE_DAILY_CAP_USD);
+  if (!gate.ok) return res.status(429).json({ error: "You have reached today's limit for this key. It resets at midnight UTC.", reason: 'daily_cap' });
   try {
     const r = await runReview({ pool, tables: REVIEW_TABLES, threadId });
     if (r.error) return res.status(r.status || 500).json({ error: r.error });
+    if (r.usage) await recordUsage(pool, req.accessKeyId, { mode: 'typed', model: REVIEW_MODEL, usage: { input: r.usage.input, output: r.usage.output, searches: r.usage.searches } });
     res.json({ report: r.report, changes: r.changes, skipped: !!r.skipped, unchanged: !!r.unchanged });
   } catch (err) {
     console.error('[review] failed:', err.message);
     res.status(502).json({ error: 'The review could not finish. Anything it had already recorded is kept; try again in a moment.' });
   }
+}));
+
+// What this key has used (counts and an estimated cost, never content).
+router.get('/usage', asyncRoute(async (req, res) => {
+  res.json(await usageSummary(pool, req.accessKeyId, PHONE_DAILY_CAP_USD));
 }));
 
 // A device reports something the person did with an artifact (opened it in their mail app,
@@ -456,6 +470,12 @@ router.post('/threads/:id/messages', asyncRoute(async (req, res) => {
     return res.status(400).json({ error: 'empty message' });
   }
 
+  // A ceiling on what one key can spend in a day, so a leaked or runaway key cannot run up a bill.
+  const gate = await checkDailyCap(pool, req.accessKeyId, PHONE_DAILY_CAP_USD);
+  if (!gate.ok) {
+    return res.status(429).json({ error: "You have reached today's limit for this key. It resets at midnight UTC.", reason: 'daily_cap' });
+  }
+
   // Persist the person's turn.
   await pool.query(
     `INSERT INTO turns (thread_id, role, content, attachment_label) VALUES ($1, 'person', $2, $3)`,
@@ -506,7 +526,7 @@ router.post('/threads/:id/messages', asyncRoute(async (req, res) => {
   const send = (obj) => res.write(`data: ${JSON.stringify(obj)}\n\n`);
 
   try {
-    const { fullText, toolCalls } = await streamCounterpartReply({
+    const { fullText, toolCalls, usage } = await streamCounterpartReply({
       model: MODEL,
       messages,
       extraSystemContext,
@@ -518,6 +538,7 @@ router.post('/threads/:id/messages', asyncRoute(async (req, res) => {
       `INSERT INTO turns (thread_id, role, content) VALUES ($1, 'counterpart', $2)`,
       [threadId, fullText]
     );
+    await recordUsage(pool, req.accessKeyId, { mode: 'typed', model: MODEL, usage });
 
     const proposedDecisions = [];
     for (const call of toolCalls) {

@@ -151,3 +151,21 @@ CREATE TABLE IF NOT EXISTS reviews (
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_reviews_thread ON reviews(thread_id, created_at);
+
+-- What each phone key costs to run (counts and an estimated cost; no content, thread or person).
+-- Same shape as web_usage; the phone app keeps its keys in a separate table by design.
+CREATE TABLE IF NOT EXISTS key_usage (
+  id                  SERIAL PRIMARY KEY,
+  access_key_id       INTEGER NOT NULL REFERENCES access_keys(id) ON DELETE CASCADE,
+  day                 DATE NOT NULL DEFAULT ((now() AT TIME ZONE 'utc')::date),
+  mode                TEXT NOT NULL CHECK (mode IN ('spoken','typed')),
+  model               TEXT NOT NULL,
+  turns               INTEGER NOT NULL DEFAULT 0,
+  input_tokens        BIGINT NOT NULL DEFAULT 0,
+  cache_write_tokens  BIGINT NOT NULL DEFAULT 0,
+  cache_read_tokens   BIGINT NOT NULL DEFAULT 0,
+  output_tokens       BIGINT NOT NULL DEFAULT 0,
+  est_cost_usd        NUMERIC(12,6) NOT NULL DEFAULT 0,
+  UNIQUE (access_key_id, day, mode, model)
+);
+CREATE INDEX IF NOT EXISTS idx_key_usage_key_day ON key_usage(access_key_id, day);
