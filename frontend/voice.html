@@ -284,7 +284,6 @@ button{font-family:inherit}
           <button class="mode-switch" id="end-convo" onclick="endConversation()" style="display:none">End conversation</button>
           <button class="mode-switch" onclick="setMode('text')">Type instead</button>
           <button class="mode-switch" id="briefing-btn" onclick="speakBriefing()">Where do things stand?</button>
-          <button class="mode-switch" id="deeper-btn" onclick="toggleDeeper()">Deeper thinking: off</button>
         </div>
       </div>
       <div class="text-zone" id="text-zone" style="display:none">
@@ -347,7 +346,7 @@ function storeAccess(key){ try{ localStorage.setItem(VOICE_ACCESS_STORE,key); }c
 /* ════════ STATE ════════ */
 let currentKey="";
 let activeThreadId=null;
-let lang="en", mode="voice", ttsEnabled=true, deeper=false;
+let lang="en", mode="voice", ttsEnabled=true;
 let recognition=null;
 
 function NS(suffix){ return `cpv_${suffix}_v1__${currentKey}`; }
@@ -356,9 +355,9 @@ function loadPrefs(){
     const p=JSON.parse(localStorage.getItem(NS("prefs"))||"null");
     if(p) return p;
   }catch(e){}
-  return { lang:"en", mode:"voice", tts:true, handsFree:false, deeper:false };
+  return { lang:"en", mode:"voice", tts:true, handsFree:false };
 }
-function savePrefs(){ try{ localStorage.setItem(NS("prefs"),JSON.stringify({lang,mode,tts:ttsEnabled,handsFree,deeper})); }catch(e){} }
+function savePrefs(){ try{ localStorage.setItem(NS("prefs"),JSON.stringify({lang,mode,tts:ttsEnabled,handsFree})); }catch(e){} }
 
 /* ════════ UTIL ════════ */
 function esc(t){ return (t||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
@@ -485,7 +484,6 @@ function updateConvoUI(){
   hf.textContent="Hands-free: "+(handsFree?"on":"off");
   hf.classList.toggle("on",handsFree);
   document.getElementById("end-convo").style.display = convoActive ? "" : "none";
-  const dp=document.getElementById("deeper-btn"); if(dp){ dp.textContent="Deeper thinking: "+(deeper?"on":"off"); dp.classList.toggle("on",deeper); }
 }
 
 /* ════════ SPOKEN OUTPUT (sentence by sentence, as the reply streams) ════════ */
@@ -616,7 +614,7 @@ async function sendMessage(text){
     }
     const response=await fetch(`${SERVER}/webapi/threads/${activeThreadId}/messages`,{
       method:"POST", headers:authHeaders(), signal,
-      body:JSON.stringify({text, depth:deeper?"spoken_deep":"spoken", lang})
+      body:JSON.stringify({text, depth:"spoken", lang})
     });
     removeWaiting();
     if(response.status===429){ const m=await limitMessage(response); appendCpMsg(m,false); stopSpeaking(); spokenIdx=0; enqueueSpeech(m); streamDone=true; maybeFinish(); return; }
@@ -751,10 +749,6 @@ function toggleHandsFree(){
   updateConvoUI();
   if(handsFree) toast("Hands-free on: tap the circle once, then just talk. I'll listen again after each reply.",4500);
 }
-function toggleDeeper(){
-  deeper=!deeper; savePrefs(); updateConvoUI();
-  toast(deeper ? "Deeper thinking on: replies take a little longer and use more of your allowance." : "Deeper thinking off: quick, everyday replies.", 4200);
-}
 // What is waiting on the person, said aloud. It is read from the situation's own records, so it costs
 // nothing and cannot get the facts wrong; the wording is plain English whatever language is chosen.
 function briefingToSpeech(b){
@@ -858,7 +852,7 @@ async function enterApp(){
   document.getElementById("app-shell").classList.add("ready");
 
   const p=loadPrefs();
-  lang=p.lang||"en"; mode=p.mode||"voice"; ttsEnabled=(p.tts!==false); handsFree=!!p.handsFree; deeper=!!p.deeper; updateConvoUI(); setPhase("idle");
+  lang=p.lang||"en"; mode=p.mode||"voice"; ttsEnabled=(p.tts!==false); handsFree=!!p.handsFree; updateConvoUI(); setPhase("idle");
   document.getElementById("lang-select").value=lang;
   updateTtsBtn();
 
