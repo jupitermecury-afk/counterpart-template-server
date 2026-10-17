@@ -15,6 +15,7 @@ const { loadBriefing, safeIso } = require('../lib/briefing');
 const { logDecision, decisionsContext, updateDecision, dismissProposal } = require('../lib/decisions');
 const { recordAction, recordClientAction, listActions, actionsContext } = require('../lib/actions');
 const { runReview, resolveStatusForCounterpart } = require('../lib/review');
+const { turnSettings } = require('../lib/voice');
 const REVIEW_TABLES = { threads: 'web_threads', held: 'web_held_items', verification: 'web_verification_items', decisions: 'web_decisions', actions: 'web_actions', turns: 'web_turns', reviews: 'web_reviews' };
 const ACTION_TABLES = { actions: 'web_actions', artifacts: 'web_artifacts', threads: 'web_threads' };
 const DECISION_TABLES = { decisions: 'web_decisions', threads: 'web_threads' };
@@ -447,11 +448,12 @@ router.post('/threads/:id/messages', asyncRoute(async (req, res) => {
   const generatedFileIds = new Set();
 
   try {
+    const turn = turnSettings(depth, { model: MODEL, depthTokens: DEPTH_TOKENS });
     const { fullText, toolCalls } = await streamCounterpartReply({
-      model: MODEL,
-      maxTokens: DEPTH_TOKENS[depth] || DEPTH_TOKENS.standard,
+      model: turn.model,
+      maxTokens: turn.maxTokens,
       messages,
-      extraSystemContext,
+      extraSystemContext: extraSystemContext + turn.context,
       onText: (delta) => send({ type: 'text', delta }),
       onTool: (call) => send({ type: 'tool', name: call.name, input: call.input }),
       onServerToolEvent: (block) => fileIdsFromServerBlock(block).forEach(id => generatedFileIds.add(id)),
