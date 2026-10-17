@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
 <title>Counterpart</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0a2540">
@@ -432,9 +432,51 @@ button{font-family:inherit}
   .sidebar.closed{margin-left:calc(-1 * var(--sb-w));box-shadow:none}
 }
 @media(max-width:640px){
-  .welcome-head{font-size:40px}
-  .convo-inner{padding:1.5rem 1rem 1rem}
-  .input-zone{padding:0.5rem 1rem 0.8rem}
+  .welcome-head{font-size:34px}
+  .convo-inner{padding:1.2rem 0.9rem 0.6rem}
+  .input-zone{padding:0.5rem 0.8rem 0.8rem}
+  .main-header{padding:0.5rem 0.6rem}
+  .msg-person-bubble{max-width:92%}
+  /* the message box gets the full width; the tools and Send sit in a row beneath it */
+  .input-inner{flex-direction:column;align-items:stretch;gap:4px;padding:10px 10px 8px 14px}
+  .input-left{width:100%}
+  .msg-textarea{min-height:44px}
+  .input-right{flex-direction:row;align-items:center;justify-content:space-between;width:100%}
+  .input-tools{flex:1}
+}
+
+/* ════ TOUCH SCREENS ════ */
+@supports(height:100dvh){ body,.app-shell{height:100dvh} .workspace,.sidebar{height:100dvh} }
+.icon-btn{position:relative}
+@media(max-width:1024px){ .icon-btn.has-pending::after{content:"";position:absolute;top:5px;right:5px;width:8px;height:8px;border-radius:50%;background:var(--ember);border:2px solid var(--earth)} }
+@media(pointer:coarse){
+  .icon-btn{min-width:42px;min-height:42px;padding:9px}
+  .tool-btn{width:42px;height:42px}
+  .send-btn,.stop-btn{width:46px;height:46px}
+  .depth-select{height:42px;padding:0 8px;font-size:13px}
+  .new-btn{padding:12px 10px}
+  .sit-item{padding:11px 8px 11px 10px}
+  .sit-menu-btn{opacity:1;min-width:38px;min-height:38px}
+  .search-input{padding:12px;font-size:16px}
+  .starter-chip{padding:12px 16px;font-size:14px}
+  .chip-act{padding:10px 12px;font-size:13px}
+  .doc-mini{padding:10px 13px;font-size:12.5px}
+  .doc-card-head{padding:14px 12px}
+  .step-check{width:26px;height:26px;margin-top:-2px}
+  .step-del{opacity:1;min-width:38px;min-height:38px;font-size:16px}
+  .step-add input{padding:12px;font-size:16px}
+  .step-add button{min-width:46px}
+  .ws-tab{padding:15px 12px}
+  .review-btn{padding:12px 18px}
+  .verif-chip{padding:14px 12px}
+  .dec-actions .doc-mini{padding:11px 14px}
+  .ctx-menu button{padding:13px 12px;font-size:14.5px}
+  .modal-btn{padding:12px 20px;font-size:14px}
+  .modal-input,.ctx-area,.doc-edit,.sit-title-edit,.key-input{font-size:16px}
+  .sit-title-edit{padding:9px 0}
+  .close-invite{padding:12px 22px}
+  .input-sub{display:none}
+  .input-zone{padding-bottom:calc(0.8rem + env(safe-area-inset-bottom))}
 }
 </style>
 </head>
@@ -474,6 +516,8 @@ button{font-family:inherit}
       <button class="acct-btn" onclick="openAcctMenu(event)" aria-label="Account"><span class="acct-av" id="acct-av">·</span><span>Account</span></button>
     </div>
   </aside>
+
+  <script>if(window.innerWidth<=1024)document.getElementById("sidebar").classList.add("closed");</script>
 
   <!-- MAIN -->
   <main class="main">
@@ -1336,7 +1380,9 @@ function switchTab(t){
 // A count of zero is hidden, and the rail icons mirror the tab counts, so everything stays in step.
 (function(){ const ws=document.getElementById("workspace"); const bar=ws&&ws.querySelector(".ws-tabs"); if(!bar) return;
   const sync=()=>bar.querySelectorAll(".badge").forEach(b=>{ const z=b.textContent.trim()==="0"; b.classList.toggle("zero",z); const r=document.getElementById("r"+b.id); if(r){ r.textContent=b.textContent; r.classList.toggle("zero",z); } });
-  sync(); new MutationObserver(sync).observe(bar,{childList:true,subtree:true,characterData:true}); })();
+  // On small screens the rail is hidden, so a dot on the panel button shows when something awaits you.
+  const syncAll=()=>{ sync(); const h=document.getElementById("badge-held"), tg=document.getElementById("ws-toggle-btn"); if(h&&tg) tg.classList.toggle("has-pending",h.textContent.trim()!=="0"); };
+  syncAll(); new MutationObserver(syncAll).observe(bar,{childList:true,subtree:true,characterData:true}); })();
 function closeDrawers(){ document.getElementById("sidebar").classList.add("closed"); document.getElementById("workspace").classList.add("hidden"); document.getElementById("scrim").classList.remove("on"); }
 function setDepth(v){ depth=v; }
 function useStarter(el){ const inp=document.getElementById("msg-input"); inp.value=el.textContent; inp.focus(); autoResize(inp); }
